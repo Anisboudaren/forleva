@@ -81,11 +81,15 @@ function formatPrice (price: number) {
 }
 
 export default function CoursesByCategoryPage ({ params }: { params: { category: string } }) {
-  const categoryParam = decodeURIComponent(params.category || '').trim()
+  const rawParam = params.category || ''
+  const decoded = decodeURIComponent(rawParam).trim()
+  const normalize = (s: string) => s.replace(/^ال/, '').trim()
+  const categoryParam = normalize(decoded) || 'all'
+
   const categories = Array.from(new Set(mockCourses.map(c => c.category)))
 
   const filtered = categoryParam && categoryParam !== 'all'
-    ? mockCourses.filter(c => c.category === categoryParam)
+    ? mockCourses.filter(c => normalize(c.category) === categoryParam)
     : mockCourses
 
   return (
@@ -96,7 +100,7 @@ export default function CoursesByCategoryPage ({ params }: { params: { category:
             <div>
               <h1 className='text-2xl font-bold text-gray-900 text-right'>الدورات</h1>
               {categoryParam && categoryParam !== 'all' && (
-                <p className='mt-1 text-sm text-gray-600 text-right'>تُعرض الآن فئة: {categoryParam}</p>
+                <p className='mt-1 text-sm text-gray-600 text-right'>تُعرض الآن فئة: {decoded}</p>
               )}
             </div>
 
@@ -108,7 +112,7 @@ export default function CoursesByCategoryPage ({ params }: { params: { category:
                 <Link
                   key={cat}
                   href={`/courses/category/${encodeURIComponent(cat)}`}
-                  className={`px-3 py-1.5 rounded-full text-sm border ${categoryParam === cat ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border ${categoryParam === normalize(cat) ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
                 >
                   {cat}
                 </Link>
