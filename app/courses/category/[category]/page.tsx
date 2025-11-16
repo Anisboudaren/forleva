@@ -101,13 +101,13 @@ export default function CoursesByCategoryPage ({ params }: { params: { category:
             </div>
 
             <div className='flex flex-wrap gap-2 justify-end'>
-              <Link href='/courses/all' className={`px-3 py-1.5 rounded-full text-sm border ${(!categoryParam || categoryParam === 'all') ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
+              <Link href='/courses/category/all' className={`px-3 py-1.5 rounded-full text-sm border ${(!categoryParam || categoryParam === 'all') ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
                 الكل
               </Link>
               {categories.map(cat => (
                 <Link
                   key={cat}
-                  href={`/courses/${encodeURIComponent(cat)}`}
+                  href={`/courses/category/${encodeURIComponent(cat)}`}
                   className={`px-3 py-1.5 rounded-full text-sm border ${categoryParam === cat ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
                 >
                   {cat}

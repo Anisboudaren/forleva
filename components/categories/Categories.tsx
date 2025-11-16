@@ -124,7 +124,7 @@ export function Categories () {
                       <div className='flex items-center justify-between'>
                         <div className='flex items-center space-x-reverse space-x-2'>
                           <p className='text-sm font-medium text-gray-900'>
-                            <Link href={`/courses/${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>{category.category}</Link>
+                            <Link href={`/courses/category/${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>{category.category}</Link>
                           </p>
                           <span className='text-sm font-medium text-gray-900'>•</span>
                           <p className='text-sm font-medium text-gray-900'>{category.lessons}</p>

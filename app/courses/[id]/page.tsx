@@ -148,7 +148,7 @@ export default function CoursePage () {
               <nav className='text-sm text-gray-500 mb-3'>
                 <Link href='/' className='hover:text-gray-700'>الرئيسية</Link>
                 <span className='mx-2'>/</span>
-                <Link href='/courses/all' className='hover:text-gray-700'>الدورات</Link>
+                <Link href='/courses/category/all' className='hover:text-gray-700'>الدورات</Link>
                 <span className='mx-2'>/</span>
                 <span className='text-gray-900'>{course.title}</span>
               </nav>

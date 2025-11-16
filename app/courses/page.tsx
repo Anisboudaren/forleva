@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function CoursesIndexRedirect () {
-  redirect('/courses/all')
+  redirect('/courses/category/all')
 }

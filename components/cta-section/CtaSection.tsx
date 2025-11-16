@@ -77,7 +77,7 @@ export function CtaSection () {
             </motion.div>
 
             <motion.div
-              className='mt-8 md:absolute md:mt-0 md:top-32 lg:top-0 md:right-0'
+              className='mt-8 md:absolute md:mt-0 md:top-32 lg:top-0 md:right-0 pointer-events-none'
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
