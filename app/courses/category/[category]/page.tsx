@@ -1,5 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
+import { useMemo } from 'react'
+import { useParams } from 'next/navigation'
 
 const mockCourses = [
   {
@@ -80,17 +84,19 @@ function formatPrice (price: number) {
   return `${price.toLocaleString()} د.ج`
 }
 
-export default function CoursesByCategoryPage ({ params }: { params: { category: string } }) {
-  const rawParam = params.category || ''
-  const decoded = decodeURIComponent(rawParam).trim()
+export default function CoursesByCategoryPage () {
+  const params = useParams()
+  const raw = (params?.category as string) || 'all'
+  const decode = decodeURIComponent(raw)
   const normalize = (s: string) => s.replace(/^ال/, '').trim()
-  const categoryParam = normalize(decoded) || 'all'
+  const normalizedParam = normalize(decode) || 'all'
 
-  const categories = Array.from(new Set(mockCourses.map(c => c.category)))
+  const categories = useMemo(() => Array.from(new Set(mockCourses.map(c => c.category))), [])
 
-  const filtered = categoryParam && categoryParam !== 'all'
-    ? mockCourses.filter(c => normalize(c.category) === categoryParam)
-    : mockCourses
+  const filtered = useMemo(() => {
+    if (!normalizedParam || normalizedParam === 'all') return mockCourses
+    return mockCourses.filter(c => normalize(c.category) === normalizedParam)
+  }, [normalizedParam])
 
   return (
     <main className='bg-white'>
@@ -99,20 +105,20 @@ export default function CoursesByCategoryPage ({ params }: { params: { category:
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
             <div>
               <h1 className='text-2xl font-bold text-gray-900 text-right'>الدورات</h1>
-              {categoryParam && categoryParam !== 'all' && (
-                <p className='mt-1 text-sm text-gray-600 text-right'>تُعرض الآن فئة: {decoded}</p>
+              {normalizedParam !== 'all' && (
+                <p className='mt-1 text-sm text-gray-600 text-right'>تُعرض الآن فئة: {decode}</p>
               )}
             </div>
 
             <div className='flex flex-wrap gap-2 justify-end'>
-              <Link href='/courses/category/all' className={`px-3 py-1.5 rounded-full text-sm border ${(!categoryParam || categoryParam === 'all') ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
+              <Link href='/courses/category/all' className={`px-3 py-1.5 rounded-full text-sm border ${normalizedParam === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
                 الكل
               </Link>
               {categories.map(cat => (
                 <Link
                   key={cat}
                   href={`/courses/category/${encodeURIComponent(cat)}`}
-                  className={`px-3 py-1.5 rounded-full text-sm border ${categoryParam === normalize(cat) ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border ${normalizedParam === normalize(cat) ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
                 >
                   {cat}
                 </Link>
