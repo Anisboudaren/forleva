@@ -98,7 +98,7 @@ export function Categories () {
                 >
                   <div className='relative flex flex-col overflow-hidden transition-all duration-200 transform bg-white border border-gray-100 shadow w-60 md:w-80 h-full group rounded-xl hover:shadow-lg hover:-translate-y-1'>
                     <Link
-                      href={`/courses?category=${encodeURIComponent(mapToCourseCategory(category.name))}`}
+                      href={`/courses/${encodeURIComponent(mapToCourseCategory(category.name))}`}
                       title=''
                       className='flex shrink-0 aspect-w-4 aspect-h-3'
                     >
@@ -112,7 +112,7 @@ export function Categories () {
                     </Link>
 
                     <div className='flex-1 px-4 py-5 sm:p-6 flex flex-col'>
-                      <Link href={`/courses?category=${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>
+                      <Link href={`/courses/${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>
                         <p className='text-lg font-bold text-gray-900 text-right'>{category.name}</p>
                         <p className='mt-3 text-sm font-normal leading-6 text-gray-500 line-clamp-2 text-right'>
                           {category.description}
@@ -124,13 +124,13 @@ export function Categories () {
                       <div className='flex items-center justify-between'>
                         <div className='flex items-center space-x-reverse space-x-2'>
                           <p className='text-sm font-medium text-gray-900'>
-                            <Link href={`/courses?category=${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>{category.category}</Link>
+                            <Link href={`/courses/${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>{category.category}</Link>
                           </p>
                           <span className='text-sm font-medium text-gray-900'>•</span>
                           <p className='text-sm font-medium text-gray-900'>{category.lessons}</p>
                         </div>
                         <Link
-                          href={`/courses?category=${encodeURIComponent(mapToCourseCategory(category.name))}`}
+                          href={`/courses/${encodeURIComponent(mapToCourseCategory(category.name))}`}
                           title=''
                           className=''
                           role='button'
