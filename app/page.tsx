@@ -4,7 +4,6 @@ import { PopularCourses } from '@/components/popular-courses/PopularCourses'
 import { CtaSection } from '@/components/cta-section/CtaSection'
 import { Testimonials } from '@/components/testimonials/Testimonials'
 import { Faq } from '@/components/faq/Faq'
-import { Footer } from '@/components/footer/Footer'
 
 export default function Home () {
   return (
@@ -15,7 +14,6 @@ export default function Home () {
       <CtaSection />
       <Testimonials />
       <Faq />
-      <Footer />
     </div>
   )
 }

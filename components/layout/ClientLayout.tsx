@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { Header2 } from '@/components/header2/Header2'
+import { Footer } from '@/components/footer/Footer'
 
 export function ClientLayout ({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -11,6 +12,7 @@ export function ClientLayout ({ children }: { children: React.ReactNode }) {
     <>
       {!isDashboard && <Header2 />}
       {children}
+      <Footer />
     </>
   )
 }

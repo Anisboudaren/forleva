@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { PopularCourses } from '@/components/popular-courses/PopularCourses'
 
 const mockCourses = [
   {
@@ -283,6 +284,54 @@ export default function CoursePage () {
           </div>
         </div>
       </section>
+
+      {/* Course testimonials/comments */}
+      <section className='py-10 sm:py-14 bg-gray-50'>
+        <div className='px-[10px] lg:px-[20px] max-w-7xl mx-auto'>
+          <div className='max-w-3xl mx-auto text-center'>
+            <h2 className='text-[22px] font-bold text-gray-900 sm:text-4xl'>آراء المتعلمين في هذه الدورة</h2>
+            <p className='mt-2 text-sm text-gray-600'>مقتطفات من تعليقات حقيقية حول محتوى الدورة وجودته</p>
+          </div>
+
+          <div className='mt-8 grid grid-cols-1 md:grid-cols-3 gap-6'>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className='flex flex-col overflow-hidden shadow bg-white rounded-xl border border-gray-100'>
+                <div className='flex flex-col justify-between flex-1 p-6'>
+                  <div className='flex items-center justify-end gap-1'>
+                    <span className='text-[#FDB241]'>★</span>
+                    <span className='text-[#FDB241]'>★</span>
+                    <span className='text-[#FDB241]'>★</span>
+                    <span className='text-[#FDB241]'>★</span>
+                    <span className='text-[#FDB241]'>★</span>
+                  </div>
+                  <blockquote className='mt-4'>
+                    <p className='text-sm leading-7 text-gray-900 text-right'>
+                      محتوى منظم وواضح جدًا. ساعدتني هذه الدورة على فهم {course.category} بشكل عملي وبناء مشروع حقيقي.
+                    </p>
+                  </blockquote>
+
+                  <div className='flex items-center mt-6'>
+                    <Image
+                      className='flex-shrink-0 object-cover rounded-full w-10 h-10'
+                      src={`https://i.pravatar.cc/100?img=${i + 10}`}
+                      alt='Avatar'
+                      width={40}
+                      height={40}
+                    />
+                    <div className='mr-3'>
+                      <p className='text-sm font-bold text-gray-900'>{i === 1 ? 'فاطمة' : i === 2 ? 'يوسف' : 'مريم'}</p>
+                      <p className='mt-0.5 text-xs text-gray-600'>متعلم/ـة في {course.category}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Recommended courses (reuse homepage carousel) */}
+      <PopularCourses />
     </main>
   )
 }
