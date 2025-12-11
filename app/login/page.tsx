@@ -6,7 +6,7 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2 bg-gray-50">
       {/* Left section with background video and floating cards */}
-      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 relative hidden lg:flex items-center justify-center overflow-hidden">
+      <div className=" relative hidden lg:flex items-center justify-center overflow-hidden">
         {/* Background video */}
         <div className="absolute inset-0 w-full h-full">
           <video
@@ -19,7 +19,7 @@ export default function LoginPage() {
             <source src="/someone typing.mp4" type="video/mp4" />
           </video>
           {/* Overlay for better readability */}
-          <div className="absolute inset-0 bg-gradient-to-br from-yellow-50/80 to-amber-50/80" />
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-50/20 to-amber-50/20" />
         </div>
         
         {/* Floating cards */}

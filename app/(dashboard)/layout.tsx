@@ -44,37 +44,37 @@ const teacherMenuItems = [
   {
     title: "الدورات",
     icon: BookOpen,
-    href: "/dashboard/courses",
+    href: "/dashboard/teacher/courses",
   },
   {
     title: "الطلاب",
     icon: Users,
-    href: "/dashboard/students",
+    href: "/dashboard/teacher/students",
   },
   {
     title: "المبيعات",
     icon: ShoppingCart,
-    href: "/dashboard/sales",
+    href: "/dashboard/teacher/sales",
   },
   {
     title: "التقييمات",
     icon: Star,
-    href: "/dashboard/reviews",
+    href: "/dashboard/teacher/reviews",
   },
   {
     title: "التقارير",
     icon: BarChart3,
-    href: "/dashboard/reports",
+    href: "/dashboard/teacher/reports",
   },
   {
     title: "المحتوى",
     icon: FileText,
-    href: "/dashboard/content",
+    href: "/dashboard/teacher/content",
   },
   {
     title: "الإعدادات",
     icon: Settings,
-    href: "/dashboard/settings",
+    href: "/dashboard/teacher/settings",
   },
 ]
 
@@ -156,7 +156,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const isTeacher = pathname?.includes('/teacher') || pathname?.includes('/dashboard/courses') || pathname?.includes('/dashboard/students') || pathname?.includes('/dashboard/sales')
+  const isTeacher = pathname?.includes('/teacher') || pathname?.includes('/dashboard/teacher/')
   const isStudent = pathname?.includes('/student') || pathname?.includes('/dashboard/student/')
   
   // Default to student if path doesn't match either
