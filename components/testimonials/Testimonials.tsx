@@ -9,74 +9,95 @@ const testimonials = [
     id: 1,
     name: 'فاطمة الزهراء',
     role: 'مطور واجهات أمامية',
+    location: 'الرياض، السعودية',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-female.png',
     rating: 5,
     courseName: 'تعلم React من الصفر',
     courseLength: '8 أسابيع',
-    text: 'دورة React كانت رائعة! في 8 أسابيع فقط أصبحت قادرة على بناء تطبيقات ويب احترافية. المحتوى منظم والتمارين العملية ممتازة.'
+    date: 'منذ 3 أشهر',
+    verified: true,
+    text: 'دورة React كانت رائعة! في 8 أسابيع فقط أصبحت قادرة على بناء تطبيقات ويب احترافية. المحتوى منظم والتمارين العملية ممتازة. المدرب كان محترفاً جداً.'
   },
   {
     id: 2,
     name: 'يوسف بن علي',
     role: 'مسوق رقمي',
+    location: 'دبي، الإمارات',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-male-2.png',
-    rating: 5,
+    rating: 4,
     courseName: 'التسويق الرقمي المتقدم',
     courseLength: '6 أسابيع',
-    text: 'دورة التسويق الرقمي غيرت مسيرتي المهنية تماماً. في 6 أسابيع تعلمت استراتيجيات حديثة ساعدتني في زيادة مبيعاتي بنسبة 300%.'
+    date: 'منذ شهرين',
+    verified: true,
+    text: 'دورة التسويق الرقمي غيرت مسيرتي المهنية تماماً. في 6 أسابيع تعلمت استراتيجيات حديثة ساعدتني في زيادة مبيعاتي بنسبة 300%. أنصح بها بشدة.'
   },
   {
     id: 3,
     name: 'مريم قاسم',
     role: 'مصمم جرافيك',
+    location: 'القاهرة، مصر',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-male-1.png',
     rating: 5,
     courseName: 'تصميم واجهات المستخدم',
     courseLength: '10 أسابيع',
+    date: 'منذ 5 أشهر',
+    verified: true,
     text: 'دورة UI/UX كانت شاملة جداً. خلال 10 أسابيع تعلمت كل شيء من الأساسيات إلى التصميم الاحترافي. الآن أعمل مع عملاء دوليين!'
   },
   {
     id: 4,
     name: 'أحمد كمال',
     role: 'مهندس برمجيات',
+    location: 'عمان، الأردن',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-male-1.png',
     rating: 4,
     courseName: 'Node.js للمحترفين',
     courseLength: '12 أسبوع',
+    date: 'منذ 4 أشهر',
+    verified: true,
     text: 'دورة Node.js كانت عميقة ومفيدة. في 12 أسبوع تعلمت بناء تطبيقات خلفية قوية. المحتوى متقدم والمدرب محترف.'
   },
   {
     id: 5,
     name: 'خديجة منصور',
     role: 'مدربة حياة',
+    location: 'الدار البيضاء، المغرب',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-female.png',
-    rating: 5,
+    rating: 4,
     courseName: 'ريادة الأعمال الناجحة',
     courseLength: '7 أسابيع',
+    date: 'منذ شهر',
+    verified: true,
     text: 'دورة ريادة الأعمال ساعدتني في إطلاق مشروعي بنجاح. في 7 أسابيع فقط تعلمت كل ما أحتاجه من التخطيط إلى التنفيذ. أنصح بها بشدة!'
   },
   {
     id: 6,
     name: 'علياء فوزي',
     role: 'محلل بيانات',
+    location: 'بيروت، لبنان',
     avatar: 'https://cdn.rareblocks.xyz/collection/clarity/images/testimonial/4/avatar-male-2.png',
     rating: 4,
     courseName: 'تحليل البيانات المتقدم',
     courseLength: '9 أسابيع',
+    date: 'منذ 6 أشهر',
+    verified: true,
     text: 'دورة تحليل البيانات كانت استثماراً رائعاً. خلال 9 أسابيع تعلمت استخدام أدوات متقدمة وأصبحت قادرة على اتخاذ قرارات مدروسة بناءً على البيانات.'
   }
 ]
 
 function StarIcon () {
   return (
-    <svg
-      className='w-5 h-5 text-[#FDB241]'
-      xmlns='http://www.w3.org/2000/svg'
-      viewBox='0 0 20 20'
-      fill='currentColor'
-    >
-      <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-    </svg>
+    <div className='relative inline-flex items-center justify-center w-5 h-5'>
+      <div className='absolute inset-0' style={{ backgroundColor: '#FDB241' }} />
+      <svg
+        className='relative w-4 h-4 text-white'
+        viewBox='0 0 799.89 761'
+        xmlns='http://www.w3.org/2000/svg'
+        fill='currentColor'
+      >
+        <path d='M799.89 290.83H494.44L400.09 0l-94.64 290.83L0 290.54l247.37 179.92L152.72 761l247.37-179.63L647.16 761l-94.35-290.54z' fill='currentColor' />
+      </svg>
+    </div>
   )
 }
 
@@ -213,7 +234,7 @@ export function Testimonials () {
                 className='w-full h-full max-w-5xl mx-auto rounded-3xl opacity-30 blur-lg filter'
                 style={{
                   background:
-                    'linear-gradient(90deg, #44ff9a -0.55%, #44b0ff 22.86%, #8b44ff 48.36%, #ff6644 73.33%, #ebff70 99.34%)'
+                    'linear-gradient(135deg, #fbbf24 0%, #f59e0b 15%, #d97706 30%, #f59e0b 45%, #fbbf24 60%, #fcd34d 75%, #f59e0b 90%, #d97706 100%)'
                 }}
               />
             </div>
@@ -233,38 +254,60 @@ export function Testimonials () {
                   data-testimonial-card
                   className='flex-shrink-0 w-80 md:w-96'
                 >
-                  <div className='flex flex-col overflow-hidden shadow-xl bg-white rounded-xl h-full'>
-                    <div className='flex flex-col justify-between flex-1 p-6 lg:py-8 lg:px-7'>
+                  <div className='flex flex-col overflow-hidden shadow-md bg-white rounded-2xl h-full border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-yellow-300'>
+                    <div className='flex flex-col justify-between flex-1 p-6 lg:p-7'>
                       <div className='flex-1'>
-                        <div className='flex items-center justify-end'>
-                          {Array.from({ length: testimonial.rating }).map((_, i) => (
-                            <StarIcon key={i} />
-                          ))}
+                        <div className='flex items-center justify-between mb-4'>
+                          <div className='flex items-center gap-1'>
+                            {Array.from({ length: testimonial.rating }).map((_, i) => (
+                              <StarIcon key={i} />
+                            ))}
+                          </div>
+                          {testimonial.verified && (
+                            <div className='flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full'>
+                              <svg className='w-3 h-3 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                              </svg>
+                              <span className='text-xs font-medium text-green-700'>متحقق</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div className='mt-4 mb-2'>
-                          <p className='text-sm font-semibold text-gray-900 text-right'>{testimonial.courseName}</p>
-                          <p className='text-xs text-gray-500 text-right mt-1'>{testimonial.courseLength}</p>
+                        <div className='mb-4 pb-4 border-b border-gray-100'>
+                          <p className='text-sm font-semibold text-gray-900 text-right mb-1'>{testimonial.courseName}</p>
+                          <div className='flex items-center justify-end gap-2 text-xs text-gray-500'>
+                            <span>{testimonial.courseLength}</span>
+                            <span>•</span>
+                            <span>{testimonial.date}</span>
+                          </div>
                         </div>
 
-                        <blockquote className='flex-1 mt-4'>
-                          <p className='text-lg leading-relaxed text-gray-900 text-right'>
-                            "{testimonial.text}"
+                        <blockquote className='flex-1'>
+                          <p className='text-[15px] leading-relaxed text-gray-800 text-right'>
+                            {testimonial.text}
                           </p>
                         </blockquote>
                       </div>
 
-                      <div className='flex items-center justify-end mt-8'>
-                        <div className='ml-4 text-right'>
-                          <p className='text-base font-bold text-gray-900'>{testimonial.name}</p>
-                          <p className='mt-0.5 text-sm text-gray-600'>{testimonial.role}</p>
+                      <div className='flex items-center justify-end mt-6 pt-5 border-t border-gray-100'>
+                        <div className='ml-3 text-right flex-1'>
+                          <div className='flex items-center justify-end gap-2 mb-1'>
+                            <p className='text-base font-semibold text-gray-900'>{testimonial.name}</p>
+                            {testimonial.verified && (
+                              <svg className='w-4 h-4 text-blue-500' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                              </svg>
+                            )}
+                          </div>
+                          <p className='text-sm text-gray-600 mb-1'>{testimonial.role}</p>
+                          <p className='text-xs text-gray-500'>{testimonial.location}</p>
                         </div>
                         <Image
-                          className='flex-shrink-0 object-cover rounded-full w-11 h-11'
+                          className='flex-shrink-0 object-cover rounded-full w-14 h-14 ring-2 ring-gray-200'
                           src={testimonial.avatar}
                           alt={testimonial.name}
-                          width={44}
-                          height={44}
+                          width={56}
+                          height={56}
                         />
                       </div>
                     </div>
@@ -288,38 +331,60 @@ export function Testimonials () {
                   data-testimonial-card
                   className='flex-shrink-0 w-80 md:w-96'
                 >
-                  <div className='flex flex-col overflow-hidden shadow-xl bg-white rounded-xl h-full'>
-                    <div className='flex flex-col justify-between flex-1 p-6 lg:py-8 lg:px-7'>
+                  <div className='flex flex-col overflow-hidden shadow-md bg-white rounded-2xl h-full border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-yellow-300'>
+                    <div className='flex flex-col justify-between flex-1 p-6 lg:p-7'>
                       <div className='flex-1'>
-                        <div className='flex items-center justify-end'>
-                          {Array.from({ length: testimonial.rating }).map((_, i) => (
-                            <StarIcon key={i} />
-                          ))}
+                        <div className='flex items-center justify-between mb-4'>
+                          <div className='flex items-center gap-1'>
+                            {Array.from({ length: testimonial.rating }).map((_, i) => (
+                              <StarIcon key={i} />
+                            ))}
+                          </div>
+                          {testimonial.verified && (
+                            <div className='flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full'>
+                              <svg className='w-3 h-3 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                              </svg>
+                              <span className='text-xs font-medium text-green-700'>متحقق</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div className='mt-4 mb-2'>
-                          <p className='text-sm font-semibold text-gray-900 text-right'>{testimonial.courseName}</p>
-                          <p className='text-xs text-gray-500 text-right mt-1'>{testimonial.courseLength}</p>
+                        <div className='mb-4 pb-4 border-b border-gray-100'>
+                          <p className='text-sm font-semibold text-gray-900 text-right mb-1'>{testimonial.courseName}</p>
+                          <div className='flex items-center justify-end gap-2 text-xs text-gray-500'>
+                            <span>{testimonial.courseLength}</span>
+                            <span>•</span>
+                            <span>{testimonial.date}</span>
+                          </div>
                         </div>
 
-                        <blockquote className='flex-1 mt-4'>
-                          <p className='text-lg leading-relaxed text-gray-900 text-right'>
-                            "{testimonial.text}"
+                        <blockquote className='flex-1'>
+                          <p className='text-[15px] leading-relaxed text-gray-800 text-right'>
+                            {testimonial.text}
                           </p>
                         </blockquote>
                       </div>
 
-                      <div className='flex items-center justify-end mt-8'>
-                        <div className='ml-4 text-right'>
-                          <p className='text-base font-bold text-gray-900'>{testimonial.name}</p>
-                          <p className='mt-0.5 text-sm text-gray-600'>{testimonial.role}</p>
+                      <div className='flex items-center justify-end mt-6 pt-5 border-t border-gray-100'>
+                        <div className='ml-3 text-right flex-1'>
+                          <div className='flex items-center justify-end gap-2 mb-1'>
+                            <p className='text-base font-semibold text-gray-900'>{testimonial.name}</p>
+                            {testimonial.verified && (
+                              <svg className='w-4 h-4 text-blue-500' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                              </svg>
+                            )}
+                          </div>
+                          <p className='text-sm text-gray-600 mb-1'>{testimonial.role}</p>
+                          <p className='text-xs text-gray-500'>{testimonial.location}</p>
                         </div>
                         <Image
-                          className='flex-shrink-0 object-cover rounded-full w-11 h-11'
+                          className='flex-shrink-0 object-cover rounded-full w-14 h-14 ring-2 ring-gray-200'
                           src={testimonial.avatar}
                           alt={testimonial.name}
-                          width={44}
-                          height={44}
+                          width={56}
+                          height={56}
                         />
                       </div>
                     </div>

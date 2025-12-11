@@ -72,7 +72,7 @@ export function Categories () {
   return (
     <section className='relative bg-gray-50'>
       <div className='relative z-10 px-4 py-12 sm:py-16 sm:px-6 lg:px-8 lg:max-w-7xl lg:mx-auto lg:py-20 xl:py-28'>
-        <div className='max-w-md mx-auto sm:max-w-lg lg:mx-0 lg:mr-auto'>
+        <div className='max-w-md mx-auto sm:max-w-lg lg:mx-0 lg:ml-auto'>
           <h2 className='text-lg font-semibold text-gray-900 sm:text-xl lg:text-2xl text-right'>
             استكشف <GradientText text='الفئات' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' /> المتنوعة
           </h2>

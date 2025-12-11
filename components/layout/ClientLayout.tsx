@@ -7,12 +7,13 @@ import { Footer } from '@/components/footer/Footer'
 export function ClientLayout ({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isDashboard = pathname?.startsWith('/dashboard')
+  const isLogin = pathname === '/login'
 
   return (
     <>
-      {!isDashboard && <Header2 />}
+      {!isDashboard && !isLogin && <Header2 />}
       {children}
-      <Footer />
+      {!isDashboard && !isLogin && <Footer />}
     </>
   )
 }

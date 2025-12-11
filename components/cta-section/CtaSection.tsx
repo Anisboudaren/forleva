@@ -8,23 +8,24 @@ import { motion } from 'motion/react'
 export function CtaSection () {
   return (
     <section className='bg-gray-50'>
-      <div className='px-4 mx-auto sm:px-6 lg:px-8'>
-        <div className='relative bg-black rounded-3xl p-8 sm:p-12 lg:p-16 xl:p-20 m-[10px] lg:m-[20px]'>
-          <div className='relative'>
+      <div className='px-4 py-10 mx-auto sm:px-6  lg:px-8'>
+        <div className='relative rounded-3xl p-[2px] m-[10px] lg:m-[20px] bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'>
+          <div className='relative bg-white rounded-3xl p-8 sm:p-12 lg:p-16 xl:p-20'>
+          <div className='relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8'>
             <motion.div
-              className='lg:w-2/3 lg:mr-auto'
+              className='lg:w-1/2 lg:order-2'
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.5 }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
-              <p className='text-sm font-normal tracking-widest text-gray-300 uppercase text-right'>
+              <p className='text-sm font-normal tracking-widest text-gray-600 uppercase text-right'>
                 منصة شاملة للمتعلمين والمحترفين
               </p>
-              <h2 className='mt-2 sm:mt-6 text-[22px] font-bold text-white sm:text-5xl lg:text-6xl xl:text-8xl text-right'>
-                ابدأ رحلتك التعليمية <GradientText text='الآن' gradient='linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' />
+              <h2 className='mt-2 sm:mt-6 text-[22px] font-bold text-yellow-500 sm:text-5xl lg:text-6xl xl:text-7xl text-right'>
+                ابدأ رحلتك التعليمية الآن
               </h2>
-              <p className='max-w-lg mt-2 sm:mt-4 text-xl font-normal text-gray-400 sm:mt-8 text-right lg:mr-auto'>
+              <p className='max-w-lg mt-2 sm:mt-4 text-xl font-normal text-gray-700 sm:mt-8 text-right'>
                 انضم إلى آلاف المتعلمين الذين يحولون شغفهم إلى مهارات حقيقية ومصدر دخل مستدام. ابدأ اليوم واصنع مستقبلك المهني.
               </p>
 
@@ -35,11 +36,11 @@ export function CtaSection () {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                <div className='absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-cyan-500 to-purple-500 group-hover:shadow-lg group-hover:shadow-cyan-500/50' />
+                <div className='absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-yellow-400 to-yellow-600 group-hover:shadow-lg group-hover:shadow-yellow-500/50' />
                 <Link
                   href='#'
                   title=''
-                  className='relative inline-flex items-center justify-center px-8 py-3 text-base font-normal text-white bg-black border border-transparent rounded-full'
+                  className='relative inline-flex items-center justify-center px-8 py-3 text-base font-normal text-white  border border-transparent rounded-full'
                   role='button'
                 >
                   ابدأ التعلم الآن
@@ -47,7 +48,7 @@ export function CtaSection () {
               </motion.div>
 
               <div>
-                <div className='inline-flex items-center pt-6 mt-8 border-t border-gray-800 sm:pt-10 sm:mt-14'>
+                <div className='inline-flex items-center pt-6 mt-8 border-t border-gray-300 sm:pt-10 sm:mt-14'>
                   <svg
                     className='w-6 h-6 rotate-180'
                     viewBox='0 0 24 24'
@@ -63,13 +64,13 @@ export function CtaSection () {
                     />
                     <defs>
                       <linearGradient id='cta-gradient' x1='3' y1='7.00003' x2='22.2956' y2='12.0274' gradientUnits='userSpaceOnUse'>
-                        <stop offset='0%' stopColor='#06b6d4' />
-                        <stop offset='100%' stopColor='#8b5cf6' />
+                        <stop offset='0%' stopColor='#fbbf24' />
+                        <stop offset='100%' stopColor='#d97706' />
                       </linearGradient>
                     </defs>
                   </svg>
 
-                  <span className='mr-2 text-base font-normal text-white text-right'>
+                  <span className='mr-2 text-base font-normal text-gray-700 text-right'>
                     تم إضافة 42 دورة جديدة الأسبوع الماضي
                   </span>
                 </div>
@@ -77,26 +78,27 @@ export function CtaSection () {
             </motion.div>
 
             <motion.div
-              className='mt-8 md:absolute md:mt-0 md:top-32 lg:top-0 md:right-0 pointer-events-none'
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className='lg:w-1/2 lg:order-1 lg:flex lg:justify-center pointer-events-none'
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
             >
               <motion.div
-                initial={{ y: 0 }}
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+                className='relative w-full max-w-xs mx-auto lg:max-w-sm xl:max-w-md'
+                animate={{ y: [0, -15, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <Image
-                  className='w-full max-w-xs mx-auto lg:max-w-lg xl:max-w-xl'
-                  src='https://landingfoliocom.imgix.net/store/collection/dusk/images/hero/1/3d-illustration.png'
-                  alt='Illustration'
-                  width={600}
-                  height={600}
-                />
+                  <Image
+                    className='w-full h-auto'
+                    src='/gril from tablet with bg .png'
+                    alt='3D Girl with Certificate'
+                    width={400}
+                    height={600}
+                  />
               </motion.div>
             </motion.div>
+          </div>
           </div>
         </div>
       </div>

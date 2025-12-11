@@ -91,11 +91,11 @@ export function Header () {
           <div className='flex-shrink-0 order-3'>
             <Link href='/' title='Forleva' className='flex items-center'>
               <Image
-                className='w-auto h-8'
-                src='/Untitled (2000 x 800 px).png'
+                className='w-auto h-12 lg:h-16'
+                src='/logo with brand name (black colored ).png'
                 alt='Forleva Logo'
-                width={200}
-                height={80}
+                width={300}
+                height={120}
               />
             </Link>
           </div>

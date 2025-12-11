@@ -46,20 +46,11 @@ export function Header2 () {
 
           <div className='hidden lg:flex lg:items-center lg:gap-3 lg:ml-auto'>
             <Link
-              href='#'
+              href='/login'
               title=''
               className='text-sm lg:text-base font-medium text-gray-900 transition-all duration-200 rounded px-3 py-2 focus:outline-none hover:text-opacity-50 focus:ring-1 focus:ring-gray-900 focus:ring-offset-2 whitespace-nowrap'
             >
               تسجيل الدخول
-            </Link>
-
-            <Link
-              href='#'
-              title=''
-              className='px-4 lg:px-5 py-2 text-sm lg:text-base font-semibold leading-7 text-gray-900 transition-all duration-200 bg-transparent border border-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 hover:bg-gray-900 hover:text-white focus:bg-gray-900 focus:text-white whitespace-nowrap'
-              role='button'
-            >
-              انضم للمجتمع
             </Link>
           </div>
 
@@ -111,11 +102,11 @@ export function Header2 () {
               className='flex rounded outline-none focus:ring-1 focus:ring-gray-900 focus:ring-offset-2'
             >
               <Image
-                className='w-auto h-8'
-                src='/Untitled (2000 x 800 px).png'
+                className='w-auto h-12 lg:h-16'
+                src='/logo with brand name (black colored ).png'
                 alt='Forleva Logo'
-                width={200}
-                height={80}
+                width={300}
+                height={120}
               />
             </Link>
           </div>
@@ -165,22 +156,12 @@ export function Header2 () {
                 </Link>
 
                 <Link
-                  href='#'
+                  href='/login'
                   title=''
                   className='text-base font-medium text-gray-900 transition-all duration-200 rounded focus:outline-none hover:text-opacity-50'
                   onClick={() => setIsMenuOpen(false)}
                 >
                   تسجيل الدخول
-                </Link>
-
-                <Link
-                  href='#'
-                  title=''
-                  className='px-5 py-2 text-base font-semibold leading-7 text-gray-900 transition-all duration-200 bg-transparent border border-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 hover:bg-gray-900 hover:text-white'
-                  role='button'
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  انضم للمجتمع
                 </Link>
               </motion.div>
             </motion.div>
