@@ -10,8 +10,13 @@ const cairo = Cairo({
 })
 
 export const metadata: Metadata = {
-  title: 'منصة التعلم التعليمية',
-  description: 'منصة تعليمية اجتماعية للمتعلمين'
+  title: 'Forleva',
+  description: 'منصة تعليمية اجتماعية للمتعلمين',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export default function RootLayout ({
