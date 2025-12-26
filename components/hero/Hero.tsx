@@ -19,7 +19,7 @@ export function Hero () {
 
           <div className='order-2 lg:order-1 animate-fade-in-up opacity-0'>
             <p className='text-base font-semibold tracking-wider text-blue-600 uppercase'>
-              منصة اجتماعية للمتعلمين
+              منصة تعليمية اجتماعية للمتعلمين
             </p>
 
             <h1 className='mt-4 text-4xl font-bold text-black lg:mt-8 sm:text-6xl xl:text-8xl'>

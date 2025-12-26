@@ -1,19 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'motion/react'
 
 export function Header2 () {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   function toggleMenu () {
     setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <header className='relative py-4 md:py-6'>
+    <header
+      className={`fixed inset-x-0 top-0 z-50 py-4 md:py-6 transition-colors duration-300 ${
+        isScrolled ? 'bg-white/80 backdrop-blur-md shadow-sm' : 'bg-transparent'
+      }`}
+    >
       <div className='px-4 mx-auto max-w-7xl sm:px-6 lg:px-8'>
         <div className='relative flex items-center justify-between gap-4'>
           <div className='hidden lg:absolute lg:inset-y-0 lg:flex lg:items-center lg:justify-center lg:w-full lg:pointer-events-none'>

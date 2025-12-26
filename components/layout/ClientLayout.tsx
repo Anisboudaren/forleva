@@ -8,12 +8,13 @@ export function ClientLayout ({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isDashboard = pathname?.startsWith('/dashboard')
   const isLogin = pathname === '/login'
+  const isHome = pathname === '/'
 
   return (
     <>
-      {!isDashboard && !isLogin && <Header2 />}
+      {!isDashboard && !isLogin && !isHome && <Header2 />}
       {children}
-      {!isDashboard && !isLogin && <Footer />}
+      {!isDashboard && !isLogin && !isHome && <Footer />}
     </>
   )
 }

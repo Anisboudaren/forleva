@@ -20,7 +20,7 @@ export function CtaSection () {
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
               <p className='text-sm font-normal tracking-widest text-gray-600 uppercase text-right'>
-                منصة شاملة للمتعلمين والمحترفين
+                منصة تعليمية شاملة للمتعلمين والمحترفين
               </p>
               <h2 className='mt-2 sm:mt-6 text-[22px] font-bold text-yellow-500 sm:text-5xl lg:text-6xl xl:text-7xl text-right'>
                 ابدأ رحلتك التعليمية الآن

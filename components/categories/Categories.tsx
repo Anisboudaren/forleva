@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
 
-const categories = [
+export const categories = [
   {
     id: 1,
     name: 'البرمجة',

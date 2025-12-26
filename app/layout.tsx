@@ -10,8 +10,8 @@ const cairo = Cairo({
 })
 
 export const metadata: Metadata = {
-  title: 'منصة التعلم',
-  description: 'منصة اجتماعية للمتعلمين'
+  title: 'منصة التعلم التعليمية',
+  description: 'منصة تعليمية اجتماعية للمتعلمين'
 }
 
 export default function RootLayout ({

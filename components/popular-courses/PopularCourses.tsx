@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
 
-const courses = [
+export const courses = [
   {
     id: 1,
     title: 'تعلم React من الصفر',
@@ -84,13 +84,13 @@ export function PopularCourses () {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   return (
-    <section className='relative bg-white py-12 sm:py-16 lg:py-20'>
+    <section className='relative bg-white pt-12 pb-0 sm:pt-16 sm:pb-0 lg:pt-20 lg:pb-0'>
       <div className='relative z-10 px-4 py-12 sm:py-16 sm:px-6 lg:px-8 lg:max-w-7xl lg:mx-auto'>
-        <div className='max-w-md mx-auto sm:max-w-lg lg:max-w-none lg:mx-0 lg:ml-auto'>
-          <h2 className='text-lg font-semibold text-gray-900 sm:text-xl lg:text-2xl text-right'>
-            <GradientText text='الدورات' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' /> الأكثر شعبية
+        <div className='max-w-2xl mx-auto text-center'>
+          <h2 className='text-2xl font-bold text-gray-900 sm:text-3xl lg:text-4xl'>
+            أشهر <GradientText text='الدورات التعليمية' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
           </h2>
-          <p className='mt-2 sm:mt-4 text-sm font-normal leading-6 text-gray-600 text-right'>
+          <p className='mt-3 text-sm leading-7 text-gray-600 sm:text-base'>
             اكتشف أفضل الدورات التي يختارها آلاف المتعلمين لتحقيق أهدافهم المهنية
           </p>
         </div>
@@ -123,25 +123,55 @@ export function PopularCourses () {
                         width={320}
                         height={240}
                       />
+                      <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent' />
+                      
+                      {/* Category and Rating on Image */}
+                      <div className='absolute top-3 right-3 flex flex-col gap-2 items-end'>
+                        <span className='text-xs font-semibold text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20'>
+                          {course.category}
+                        </span>
+                        <div className='flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20'>
+                          <svg
+                            className='w-4 h-4 text-yellow-400'
+                            fill='currentColor'
+                            viewBox='0 0 20 20'
+                          >
+                            <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
+                          </svg>
+                          <span className='text-sm font-bold text-white'>{course.rating}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Price and Promotion on Image Left */}
+                      <div className='absolute bottom-3 left-3 flex flex-col items-start gap-1'>
+                        {course.price > 2000 && (
+                          <span className='text-sm text-gray-300 line-through bg-black/50 backdrop-blur-sm px-2 py-1 rounded'>
+                            {(course.price * 1.3).toLocaleString()} د.ج
+                          </span>
+                        )}
+                        <span 
+                          className='text-xl font-black bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg border-2'
+                          style={{
+                            color: '#fbbf24',
+                            borderColor: '#fbbf24',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                          }}
+                        >
+                          {course.price.toLocaleString()} د.ج
+                        </span>
+                      </div>
+                      
                       {course.recommended && (
-                        <div className='absolute top-3 right-3 bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded-full'>
+                        <div className='absolute top-3 left-3 bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded-full'>
                           موصى به
                         </div>
                       )}
                     </Link>
 
                     <div className='flex-1 px-4 py-5 sm:p-6 flex flex-col'>
-                      <div className='mb-2'>
-                        <span className='text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded'>
-                          {course.category}
-                        </span>
-                      </div>
                       <Link href={`/courses/${course.id}`} title=''>
-                        <p className='text-lg font-bold text-gray-900 text-right'>{course.title}</p>
-                        <div className='mt-2 flex items-center justify-end gap-2'>
-                          <p className='text-sm font-normal text-gray-600 text-right'>
-                            {course.instructor}
-                          </p>
+                        <p className='text-lg font-bold text-gray-900 text-right mb-2'>{course.title}</p>
+                        <div className='flex items-center gap-2'>
                           {course.verified && (
                             <svg
                               className='w-4 h-4 text-blue-500 flex-shrink-0'
@@ -155,33 +185,20 @@ export function PopularCourses () {
                               />
                             </svg>
                           )}
+                          <p className='text-sm font-normal text-gray-600 text-right'>
+                            {course.instructor}
+                          </p>
                         </div>
                       </Link>
                     </div>
 
                     <div className='px-4 py-5 mt-auto border-t border-gray-100 sm:px-6'>
-                      <div className='flex items-center justify-between mb-3'>
-                        <div className='flex items-center space-x-reverse space-x-1'>
-                          <svg
-                            className='w-4 h-4 text-yellow-400'
-                            fill='currentColor'
-                            viewBox='0 0 20 20'
-                          >
-                            <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                          </svg>
-                          <span className='text-sm font-medium text-gray-900'>{course.rating}</span>
-                        </div>
-                        <span className='text-sm text-gray-600'>{course.students.toLocaleString()} طالب</span>
-                      </div>
-                      <div className='flex items-center justify-between'>
-                        <span className='text-xl font-bold text-gray-900'>{course.price.toLocaleString()} د.ج</span>
-                        <Link
-                          href={`/courses/${course.id}`}
-                          className='text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors'
-                        >
-                          عرض التفاصيل →
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/courses/${course.id}`}
+                        className='inline-flex items-center justify-center w-full px-4 py-2 text-xs font-black text-amber-950 rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 shadow-[0_10px_25px_rgba(217,119,6,0.45)] hover:brightness-105 transition-all'
+                      >
+                        ابدأ هذه الدورة الآن
+                      </Link>
                     </div>
                   </div>
                 </div>
