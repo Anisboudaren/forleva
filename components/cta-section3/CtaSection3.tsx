@@ -26,7 +26,7 @@ export function CtaSection3 () {
               ابدأ رحلتك التعليمية اليوم مع <span className="font-bold">حساب مجاني</span> وافتح أبواب النجاح
             </p>
             <Link
-              href="#cta"
+              href="/login"
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm sm:text-base font-bold text-amber-900 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
             >
               <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />

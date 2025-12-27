@@ -41,7 +41,7 @@ export function CategoriesPhotoStrip () {
                   <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/0' />
                   <div className='absolute bottom-0 right-0 left-0 p-4'>
                     <p className='text-xs font-medium text-yellow-200'>
-                      {category.category} • {category.lessons}
+                      {category.category} • {category.courses}
                     </p>
                     <h3 className='mt-1 text-lg font-bold text-white'>
                       {category.name}

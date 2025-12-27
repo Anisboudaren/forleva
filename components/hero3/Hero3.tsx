@@ -119,8 +119,7 @@ export function Hero3 () {
             >
               {/* Primary CTA */}
               <Link
-                href="#cta"
-                onClick={(e) => smoothScrollTo(e, 'cta')}
+                href="/login"
                 className="group relative inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base md:text-lg font-black text-white rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 overflow-hidden shadow-lg hover:shadow-xl hover:scale-105"
                 style={{
                   background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
@@ -147,86 +146,33 @@ export function Hero3 () {
           </motion.div>
 
           {/* Image Section - Left side on desktop (RTL) */}
-          <motion.div
-            className="relative w-full order-1 lg:order-2 flex items-center justify-center"
-            initial={{ opacity: 0, x: 30 }}
-            animate={isLoaded ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-          >
+          <div className="relative w-full order-1 lg:order-2 flex items-center justify-center">
             {/* Desktop Image - hero-guy-with-logo-2.png */}
             <div className="hidden md:block relative w-full h-full flex items-center justify-center overflow-visible">
-              <motion.div
-                className="absolute -inset-4 bg-gradient-to-r from-amber-200/40 via-amber-300/30 to-amber-200/40 rounded-3xl blur-2xl -z-10"
-                animate={{
-                  y: [0, -10, 0],
-                  scale: [1, 1.02, 1]
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
+              <Image
+                className="w-full h-auto max-w-[110%] xl:max-w-[120%] mx-auto object-contain"
+                src="/home page/hero guy with logo 2.png"
+                alt="Forleva Hero"
+                width={1000}
+                height={1000}
+                priority
+                quality={95}
               />
-              <motion.div
-                className="relative w-full flex items-center justify-center"
-                animate={{
-                  y: [0, -8, 0]
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
-              >
-                <Image
-                  className="w-full h-auto max-w-[110%] xl:max-w-[120%] mx-auto object-contain"
-                  src="/home page/hero guy with logo 2.png"
-                  alt="Forleva Hero"
-                  width={1000}
-                  height={1000}
-                  priority
-                  quality={95}
-                />
-              </motion.div>
             </div>
 
             {/* Mobile Image - hero-guy-with-logo-2.png */}
             <div className="md:hidden relative">
-              <motion.div
-                className="absolute -inset-3 bg-gradient-to-r from-amber-200/40 via-amber-300/30 to-amber-200/40 rounded-2xl blur-xl -z-10"
-                animate={{
-                  y: [0, -6, 0],
-                  scale: [1, 1.02, 1]
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
+              <Image
+                className="w-full h-auto max-w-sm mx-auto object-contain"
+                src="/home page/hero guy with logo 2.png"
+                alt="Forleva Hero"
+                width={400}
+                height={400}
+                priority
+                quality={95}
               />
-              <motion.div
-                className="relative"
-                animate={{
-                  y: [0, -6, 0]
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
-              >
-                <Image
-                  className="w-full h-auto max-w-sm mx-auto object-contain"
-                  src="/home page/hero guy with logo 2.png"
-                  alt="Forleva Hero"
-                  width={400}
-                  height={400}
-                  priority
-                  quality={95}
-                />
-              </motion.div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

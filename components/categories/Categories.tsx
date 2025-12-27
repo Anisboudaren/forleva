@@ -12,7 +12,7 @@ export const categories = [
     description: 'تعلم البرمجة والتطوير من الصفر حتى الاحتراف',
     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=300&fit=crop',
     category: 'تقنية',
-    lessons: '120+ درس'
+    courses: '25+ دورة'
   },
   {
     id: 2,
@@ -20,7 +20,7 @@ export const categories = [
     description: 'مهارات التصميم والإبداع البصري',
     image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=300&fit=crop',
     category: 'إبداعي',
-    lessons: '85+ درس'
+    courses: '18+ دورة'
   },
   {
     id: 3,
@@ -28,7 +28,7 @@ export const categories = [
     description: 'استراتيجيات التسويق الرقمي والنمو',
     image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop',
     category: 'أعمال',
-    lessons: '95+ درس'
+    courses: '20+ دورة'
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ export const categories = [
     description: 'ريادة الأعمال والإدارة الحديثة',
     image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=400&h=300&fit=crop',
     category: 'أعمال',
-    lessons: '110+ درس'
+    courses: '22+ دورة'
   },
   {
     id: 5,
@@ -44,7 +44,7 @@ export const categories = [
     description: 'تعلم اللغات الأجنبية بطرق حديثة',
     image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&h=300&fit=crop',
     category: 'لغات',
-    lessons: '150+ درس'
+    courses: '30+ دورة'
   },
   {
     id: 6,
@@ -52,7 +52,7 @@ export const categories = [
     description: 'اللياقة البدنية والصحة النفسية',
     image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
     category: 'صحة',
-    lessons: '75+ درس'
+    courses: '15+ دورة'
   }
 ]
 
@@ -127,7 +127,7 @@ export function Categories () {
                             <Link href={`/courses/category/${encodeURIComponent(mapToCourseCategory(category.name))}`} title=''>{category.category}</Link>
                           </p>
                           <span className='text-sm font-medium text-gray-900'>•</span>
-                          <p className='text-sm font-medium text-gray-900'>{category.lessons}</p>
+                          <p className='text-sm font-medium text-gray-900'>{category.courses}</p>
                         </div>
                         <Link
                           href={`/courses/category/${encodeURIComponent(mapToCourseCategory(category.name))}`}

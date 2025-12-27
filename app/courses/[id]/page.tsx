@@ -139,7 +139,7 @@ export default function CoursePage () {
   const introUrl = getIntroVideoUrl(course)
 
   return (
-    <main className='bg-white'>
+    <main className='bg-white pt-20 sm:pt-24 md:pt-28 lg:pt-24'>
       {/* Hero */}
       <section className='bg-gray-50'>
         <div className='px-[10px] lg:px-[20px] py-8 lg:py-12'>

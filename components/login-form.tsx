@@ -67,10 +67,12 @@ export function LoginForm({
           <FieldLabel htmlFor="email" className="text-gray-900 font-medium">البريد الإلكتروني</FieldLabel>
           <Input 
             id="email" 
+            name="email"
             type="email" 
             placeholder="m@example.com" 
             required 
-            className="border-gray-200 focus:border-yellow-500 focus:ring-yellow-500"
+            dir="rtl"
+            className="border-gray-200 focus:border-yellow-500 focus:ring-yellow-500 text-right"
           />
         </Field>
         <Field>
@@ -85,9 +87,11 @@ export function LoginForm({
           </div>
           <Input 
             id="password" 
+            name="password"
             type="password" 
             required 
-            className="border-gray-200 focus:border-yellow-500 focus:ring-yellow-500"
+            dir="rtl"
+            className="border-gray-200 focus:border-yellow-500 focus:ring-yellow-500 text-right"
           />
         </Field>
         <Field>
@@ -140,7 +144,7 @@ export function LoginForm({
           </Button>
           <FieldDescription className="text-center text-gray-600">
             ليس لديك حساب؟{" "}
-            <a href="#" className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
+            <a href="/signup" className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
               سجل الآن
             </a>
           </FieldDescription>

@@ -43,7 +43,7 @@ export function CategoriesPhotoGrid () {
                     {category.category}
                   </span>
                   <span className='px-3 py-1 rounded-full bg-black/30 border border-white/10'>
-                    {category.lessons}
+                    {category.courses}
                   </span>
                 </div>
                 <h3 className='text-lg font-bold text-white sm:text-xl'>

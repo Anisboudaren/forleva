@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { User } from 'lucide-react'
 
@@ -10,20 +11,26 @@ export function Header3 () {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [activeSection, setActiveSection] = useState('hero')
+  const pathname = usePathname()
+  const isHomePage = pathname === '/'
+  const isCertificatesPage = pathname === '/certificates'
+  const isHowItWorksPage = pathname === '/how-it-works'
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20)
       
-      // Determine active section based on scroll position
-      const sections = ['hero', 'how-it-works', 'choose-course', 'courses', 'certificates', 'cta']
-      const scrollPosition = window.scrollY + 100
-      
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const section = document.getElementById(sections[i])
-        if (section && section.offsetTop <= scrollPosition) {
-          setActiveSection(sections[i])
-          break
+      // Only determine active section if on home page
+      if (isHomePage) {
+        const sections = ['hero', 'how-it-works', 'choose-course', 'courses', 'certificates', 'cta']
+        const scrollPosition = window.scrollY + 100
+        
+        for (let i = sections.length - 1; i >= 0; i--) {
+          const section = document.getElementById(sections[i])
+          if (section && section.offsetTop <= scrollPosition) {
+            setActiveSection(sections[i])
+            break
+          }
         }
       }
     }
@@ -31,19 +38,34 @@ export function Header3 () {
     handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [isHomePage])
 
   function toggleMenu () {
     setIsMenuOpen(!isMenuOpen)
   }
 
   const smoothScrollTo = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
-    e.preventDefault()
-    const element = document.getElementById(targetId)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (isHomePage) {
+      e.preventDefault()
+      const element = document.getElementById(targetId)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
+    // If not on home page, let the Link component handle navigation normally
     setIsMenuOpen(false)
+  }
+
+  // Helper to get href for navigation links
+  const getNavHref = (sectionId: string) => {
+    // Certificates and how-it-works have dedicated pages, link to them instead
+    if (sectionId === 'certificates') {
+      return '/certificates'
+    }
+    if (sectionId === 'how-it-works') {
+      return '/how-it-works'
+    }
+    return isHomePage ? `#${sectionId}` : `/#${sectionId}`
   }
 
   return (
@@ -79,10 +101,9 @@ export function Header3 () {
           <div className="hidden lg:absolute lg:inset-y-0 lg:flex lg:items-center lg:justify-center lg:w-full lg:pointer-events-none">
             <nav className="flex items-center gap-6 lg:gap-8 pointer-events-auto">
               <Link
-                href="#how-it-works"
-                onClick={(e) => smoothScrollTo(e, 'how-it-works')}
+                href={getNavHref('how-it-works')}
                 className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  activeSection === 'how-it-works' 
+                  isHowItWorksPage || (isHomePage && activeSection === 'how-it-works')
                     ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
                     : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
                 }`}
@@ -91,10 +112,10 @@ export function Header3 () {
               </Link>
 
               <Link
-                href="#choose-course"
+                href={getNavHref('choose-course')}
                 onClick={(e) => smoothScrollTo(e, 'choose-course')}
                 className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  activeSection === 'choose-course' 
+                  isHomePage && activeSection === 'choose-course' 
                     ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
                     : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
                 }`}
@@ -103,10 +124,10 @@ export function Header3 () {
               </Link>
 
               <Link
-                href="#courses"
+                href={getNavHref('courses')}
                 onClick={(e) => smoothScrollTo(e, 'courses')}
                 className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  activeSection === 'courses' 
+                  isHomePage && activeSection === 'courses' 
                     ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
                     : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
                 }`}
@@ -115,11 +136,10 @@ export function Header3 () {
               </Link>
 
               <Link
-                href="#certificates"
-                onClick={(e) => smoothScrollTo(e, 'certificates')}
+                href={getNavHref('certificates')}
                 className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  activeSection === 'certificates' 
-                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
+                  isCertificatesPage
+                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
                     : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
                 }`}
               >
@@ -131,8 +151,7 @@ export function Header3 () {
           {/* CTA Button */}
           <div className="hidden lg:flex lg:items-center lg:ml-auto">
             <Link
-              href="#cta"
-              onClick={(e) => smoothScrollTo(e, 'cta')}
+              href="/login"
               className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
               style={{
                 background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
@@ -205,15 +224,18 @@ export function Header3 () {
                 className="flex flex-col space-y-1 p-4"
               >
                 <Link
-                  href="#how-it-works"
-                  onClick={(e) => smoothScrollTo(e, 'how-it-works')}
-                  className="text-base font-medium text-gray-900 transition-all duration-200 rounded px-3 py-2 hover:bg-gray-100"
+                  href={getNavHref('how-it-works')}
+                  className={`text-base font-medium transition-all duration-200 rounded px-3 py-2 ${
+                    isHowItWorksPage
+                      ? 'text-amber-600 bg-amber-50 font-semibold'
+                      : 'text-gray-900 hover:bg-gray-100'
+                  }`}
                 >
                   كيف تعمل المنصة
                 </Link>
 
                 <Link
-                  href="#choose-course"
+                  href={getNavHref('choose-course')}
                   onClick={(e) => smoothScrollTo(e, 'choose-course')}
                   className="text-base font-medium text-gray-900 transition-all duration-200 rounded px-3 py-2 hover:bg-gray-100"
                 >
@@ -221,7 +243,7 @@ export function Header3 () {
                 </Link>
 
                 <Link
-                  href="#courses"
+                  href={getNavHref('courses')}
                   onClick={(e) => smoothScrollTo(e, 'courses')}
                   className="text-base font-medium text-gray-900 transition-all duration-200 rounded px-3 py-2 hover:bg-gray-100"
                 >
@@ -229,16 +251,18 @@ export function Header3 () {
                 </Link>
 
                 <Link
-                  href="#certificates"
-                  onClick={(e) => smoothScrollTo(e, 'certificates')}
-                  className="text-base font-medium text-gray-900 transition-all duration-200 rounded px-3 py-2 hover:bg-gray-100"
+                  href={getNavHref('certificates')}
+                  className={`text-base font-medium transition-all duration-200 rounded px-3 py-2 ${
+                    isCertificatesPage
+                      ? 'text-amber-600 bg-amber-50 font-semibold'
+                      : 'text-gray-900 hover:bg-gray-100'
+                  }`}
                 >
                   شهادات
                 </Link>
 
                 <Link
-                  href="#cta"
-                  onClick={(e) => smoothScrollTo(e, 'cta')}
+                  href="/login"
                   className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-full transition-all duration-200"
                   style={{
                     background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'

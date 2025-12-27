@@ -99,7 +99,7 @@ export default function CoursesByCategoryPage () {
   }, [normalizedParam])
 
   return (
-    <main className='bg-white'>
+    <main className='bg-white pt-20 sm:pt-24 md:pt-28 lg:pt-24'>
       <section className='py-10 sm:py-14'>
         <div className='px-4 mx-auto sm:px-6 lg:px-8 max-w-7xl'>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
