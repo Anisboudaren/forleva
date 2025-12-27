@@ -361,7 +361,7 @@ export default function HowItWorksPage () {
                           </div>
                         </div>
                       </motion.div>
-                    ) : (
+                    ) : step.image ? (
                       /* Regular Image */
                       <motion.div
                         className="relative w-full max-w-md"
@@ -384,7 +384,7 @@ export default function HowItWorksPage () {
                           </div>
                         </div>
                       </motion.div>
-                    )}
+                    ) : null}
                   </div>
                 </motion.div>
               )
