@@ -68,8 +68,13 @@ export function Hero3 () {
               animate={isLoaded ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
               transition={{ duration: 0.7, delay: 0.4, ease: 'easeOut' }}
             >
-              <span className="block">أول منصّة تعليمية ترافقك من التعلّم</span>
-              <span className="block">
+              <span className="block md:inline-block">
+                أول منصّة تعليمية ترافقك من
+                <span className="md:hidden"><br /></span>
+                <span className="hidden md:inline"> التعلّم</span>
+              </span>
+              <span className="block md:inline-block md:mr-0">
+                <span className="md:hidden">التعلّم </span>
                 الى{' '}
                 <GradientText
                   text="تحقيق الدخل"

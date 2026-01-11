@@ -2,14 +2,27 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { UserPlus, LogIn } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
+
+const paymentImages = [
+  '/how_to_use/visa pay .png',
+  '/how_to_use/mc pay .png',
+  '/how_to_use/CIB pay .png',
+  '/how_to_use/dahbia pay .png',
+  '/how_to_use/paypal.png'
+]
 
 const faqs = [
   {
     id: 1,
     question: 'كيف يمكنني التسجيل في الدورات؟',
     answer:
-      'يمكنك التسجيل بسهولة من خلال إنشاء حساب مجاني على المنصة التعليمية، ثم تصفح الدورات المتاحة واختيار ما يناسبك. يمكنك الدفع عبر طرق متعددة آمنة، مباشرة بعدها يتم تفعيل دورتك على حسابك في المنصة التعليمية.'
+      'يمكنك التسجيل بسهولة من خلال إنشاء حساب مجاني على المنصة التعليمية، ثم تصفح الدورات المتاحة واختيار ما يناسبك. يمكنك الدفع عبر طرق متعددة آمنة، مباشرة بعدها يتم تفعيل دورتك على حسابك في المنصة التعليمية.',
+    link: '/courses',
+    linkText: 'استكشف الدورات'
   },
   {
     id: 2,
@@ -20,25 +33,33 @@ const faqs = [
   {
     id: 3,
     question: 'هل يمكنني تجديد الاشتراك بعد انتهاء العام الأول؟',
-    answer: 'نعم أكيد، يمكنك تجديد الاشتراك في أي دورة تريدها بعد انتهاء مدة الاشتراك الأولى.'
+    answer: 'نعم أكيد، يمكنك تجديد الاشتراك في أي دورة تريدها بعد انتهاء مدة الاشتراك الأولى.',
+    link: '/courses',
+    linkText: 'تصفح الدورات'
   },
   {
     id: 4,
     question: 'ما هي طرق الدفع المتاحة؟',
     answer:
-      'يوجد العديد من طرق الدفع المتاحة، يمكنك اختيار ما يناسبك: CCP، BARIDIMOB، CIB، Visa Card، Master Card، PayPal.'
+      'يوجد العديد من طرق الدفع المتاحة، يمكنك اختيار ما يناسبك: CCP، BARIDIMOB، CIB، Visa Card، Master Card، PayPal.',
+    link: '/how-it-works',
+    linkText: 'تعرف على المزيد'
   },
   {
     id: 5,
     question: 'ما هي أنواع الشهادات التي تقدمونها؟',
     answer:
-      'نقدم ثلاثة أنواع من الشهادات باسمك يمكنك تحميلها من المنصة التعليمية: شهادة مشاركة مجانية، شهادة معترف بها وطنياً مدفوعة، شهادة معترف بها دولياً مدفوعة.'
+      'نقدم ثلاثة أنواع من الشهادات باسمك يمكنك تحميلها من المنصة التعليمية: شهادة مشاركة مجانية، شهادة معترف بها وطنياً مدفوعة، شهادة معترف بها دولياً مدفوعة.',
+    link: '/certificates',
+    linkText: 'اعرف المزيد عن الشهادات'
   },
   {
     id: 6,
     question: 'هل التكوين مناسب للمبتدئين؟',
     answer:
-      'نعم، الشرح والتطبيق بالتفصيل خطوة بخطوة، مناسب حتى لو ما عندك أي خبرة سابقة.'
+      'نعم، الشرح والتطبيق بالتفصيل خطوة بخطوة، مناسب حتى لو ما عندك أي خبرة سابقة.',
+    link: '/courses',
+    linkText: 'استكشف الدورات'
   },
   {
     id: 7,
@@ -50,19 +71,25 @@ const faqs = [
     id: 8,
     question: 'هل في الدورات على المنصة نتعلم الجانب التطبيقي أم فقط النظري؟',
     answer:
-      'الدورات على المنصة التعليمية مركزة على التطبيق العملي، كل دورة فيها تعليم نظري وتطبيقي حتى تتمكن من التطبيق مباشرة على أرض الواقع وتكتسب خبرة حقيقية.'
+      'الدورات على المنصة التعليمية مركزة على التطبيق العملي، كل دورة فيها تعليم نظري وتطبيقي حتى تتمكن من التطبيق مباشرة على أرض الواقع وتكتسب خبرة حقيقية.',
+    link: '/courses',
+    linkText: 'شاهد الدورات المتاحة'
   },
   {
     id: 9,
     question: 'هل يمكنني التواصل مع المدربين؟',
     answer:
-      'يمكنك التواصل مع المدربين عبر المنصة التعليمية من خلال رسائل مباشرة، ومعظم المدربين يردون خلال 24 ساعة.'
+      'يمكنك التواصل مع المدربين عبر المنصة التعليمية من خلال رسائل مباشرة، ومعظم المدربين يردون خلال 24 ساعة.',
+    link: '/signup',
+    linkText: 'سجل الآن'
   },
   {
     id: 10,
     question: 'هل تساعدني المنصة إذا أردت بدء مشروعي الشخصي؟',
     answer:
-      'نعم، تساعدك المنصة التعليمية على تحقيق فكرة مشروعك حتى تجسدها على أرض الواقع عن طريق تقديم دعم ومرافقة مدفوعة من طرف خبراء.'
+      'نعم، تساعدك المنصة التعليمية على تحقيق فكرة مشروعك حتى تجسدها على أرض الواقع عن طريق تقديم دعم ومرافقة مدفوعة من طرف خبراء.',
+    link: '/courses',
+    linkText: 'ابدأ رحلتك'
   },
   {
     id: 11,
@@ -134,10 +161,63 @@ export function Faq () {
                           animate={{ y: 0, opacity: 1 }}
                           exit={{ y: -10, opacity: 0 }}
                           transition={{ duration: 0.2, delay: 0.1 }}
-                          className='text-sm text-gray-600 leading-relaxed text-right'
+                          className='text-sm text-gray-600 leading-relaxed text-right mb-3'
                         >
                           {faq.answer}
                         </motion.p>
+                        {faq.id === 4 && (
+                          <motion.div
+                            initial={{ y: -10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -10, opacity: 0 }}
+                            transition={{ duration: 0.2, delay: 0.2 }}
+                            className='flex items-center gap-2 justify-end flex-wrap mt-3 mb-3'
+                          >
+                            {paymentImages.map((image, index) => (
+                              <div
+                                key={index}
+                                className='relative w-12 h-8 sm:w-14 sm:h-9 flex-shrink-0'
+                              >
+                                <Image
+                                  src={image}
+                                  alt={`Payment method ${index + 1}`}
+                                  fill
+                                  className='object-contain'
+                                  sizes='(max-width: 640px) 48px, 56px'
+                                />
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                        {faq.link && (
+                          <motion.div
+                            initial={{ y: -10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -10, opacity: 0 }}
+                            transition={{ duration: 0.2, delay: faq.id === 4 ? 0.3 : 0.2 }}
+                            className='mt-4 flex justify-end'
+                          >
+                            <Link
+                              href={faq.link}
+                              className='inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 rounded-lg hover:from-amber-500 hover:via-amber-600 hover:to-amber-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+                            >
+                              {faq.linkText}
+                              <svg
+                                className='w-4 h-4 ml-2'
+                                fill='none'
+                                stroke='currentColor'
+                                viewBox='0 0 24 24'
+                              >
+                                <path
+                                  strokeLinecap='round'
+                                  strokeLinejoin='round'
+                                  strokeWidth={2}
+                                  d='M15 19l-7-7 7-7'
+                                />
+                              </svg>
+                            </Link>
+                          </motion.div>
+                        )}
                       </div>
                     </motion.div>
                   )}
@@ -145,6 +225,51 @@ export function Faq () {
               </div>
             ))}
           </div>
+
+          {/* Call to Action Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className='mt-16 sm:mt-20 lg:mt-24'
+          >
+            <motion.div
+              className="relative overflow-hidden rounded-3xl p-6 sm:p-8 md:p-10 lg:p-12"
+              style={{
+                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+              }}
+            >
+              <div className="relative z-10 text-center">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 sm:mb-5">
+                  إذا لم يكن الآن، فمتى؟
+                </h2>
+                <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 max-w-3xl mx-auto">
+                  ابدأ التعلم من دورات مسجلة <span className="font-bold">مفصلة خطوة بخطوة</span> يمكنك مشاهدتها في أي وقت. مع إمكانية التواصل مع المدربين والحصول على الدعم عند الحاجة. لا تنتظر، ابدأ اليوم
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-amber-900 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                  >
+                    <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    سجل الآن مجاناً
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-white bg-white/20 backdrop-blur-sm border-2 border-white/30 rounded-full shadow-xl hover:bg-white/30 hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                  >
+                    <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+                    تسجيل الدخول
+                  </Link>
+                </div>
+              </div>
+
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+            </motion.div>
+          </motion.div>
       </div>
     </section>
   )

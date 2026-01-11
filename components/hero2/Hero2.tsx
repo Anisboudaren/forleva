@@ -25,7 +25,7 @@ export function Hero2 () {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.05 }}
           >
-            ✨ شعارنا: صدّق... توصل
+            ✨ صدّق... توصل
           </motion.p>
 
           <motion.h1

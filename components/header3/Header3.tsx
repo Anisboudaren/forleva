@@ -158,7 +158,7 @@ export function Header3 () {
               }}
             >
               <User className="w-4 h-4 relative z-10" />
-              <span className="relative z-10">أنشئ ملفك الشخصي</span>
+              <span className="relative z-10">دخول / تسجيل</span>
               <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
             </Link>
           </div>
@@ -269,7 +269,7 @@ export function Header3 () {
                   }}
                 >
                   <User className="w-4 h-4" />
-                  أنشئ ملفك الشخصي
+                  دخول / تسجيل
                 </Link>
               </motion.nav>
             </motion.div>

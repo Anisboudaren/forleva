@@ -3,7 +3,7 @@
 import { motion } from 'motion/react'
 import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
-import { Award, Globe, FileCheck, CheckCircle, UserPlus } from 'lucide-react'
+import { Award, Globe, FileCheck, CheckCircle, UserPlus, CreditCard, Package } from 'lucide-react'
 
 const certificateTypes = [
   {
@@ -61,17 +61,27 @@ export default function CertificatesPage () {
           }}
         />
 
-        {/* Image - Mobile: Full width, stick to top */}
-        <div className="lg:hidden w-full pt-20 sm:pt-24">
-          <Image
-            src="/certificate/girl with certifcaet.png"
-            alt="شهادة تعليمية"
-            width={500}
-            height={600}
-            className="w-full h-auto"
-            priority
-          />
-        </div>
+        {/* Video - Mobile: Full width, stick to top */}
+        <motion.div
+          className="lg:hidden w-full pt-20 sm:pt-24 px-4"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+        >
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl">
+            <iframe
+              className="absolute inset-0 w-full h-full"
+              src="https://www.youtube.com/embed/BLh6NiuV7b8"
+              title="شرح الشهادات المتاحة"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          <p className="mt-4 text-center text-sm sm:text-base text-gray-600 font-medium">
+            شاهد هذا الفيديو لمعرفة المزيد عن الشهادات المتاحة وكيفية الحصول عليها
+          </p>
+        </motion.div>
 
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center pt-8 lg:pt-0">
@@ -112,28 +122,27 @@ export default function CertificatesPage () {
               </div>
             </motion.div>
 
-            {/* Image - Desktop */}
+            {/* Video - Desktop */}
             <motion.div
               className="hidden lg:flex lg:order-2 lg:justify-end lg:items-start lg:pt-12"
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 30, scale: 0.95 }}
+              whileInView={{ opacity: 1, x: 0, scale: 1 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.7, ease: 'easeOut' }}
             >
-              <div className="relative w-full max-w-md -mr-8 lg:-mr-12 xl:-mr-16">
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <Image
-                    src="/certificate/girl with certifcaet.png"
-                    alt="شهادة تعليمية"
-                    width={500}
-                    height={600}
-                    className="w-full h-auto"
-                    priority
+              <div className="relative w-full max-w-2xl">
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl bg-gray-900">
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src="https://www.youtube.com/embed/BLh6NiuV7b8"
+                    title="شرح الشهادات المتاحة"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                   />
-                </motion.div>
+                </div>
+                <p className="mt-4 text-center text-sm text-gray-600 font-medium">
+                  شاهد هذا الفيديو لمعرفة المزيد عن الشهادات المتاحة وكيفية الحصول عليها
+                </p>
               </div>
             </motion.div>
           </div>
@@ -174,11 +183,29 @@ export default function CertificatesPage () {
                 >
                   {/* Content */}
                   <div className={`text-right space-y-6 ${isEven ? 'lg:order-2' : 'lg:order-1'}`}>
-                    <div className="inline-flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-full">
-                      <Icon className="w-5 h-5 text-amber-600" />
-                      <span className="text-sm font-semibold text-amber-900">
-                        {certificate.title}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="inline-flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-full">
+                        <Icon className="w-5 h-5 text-amber-600" />
+                        <span className="text-sm font-semibold text-amber-900">
+                          {certificate.title}
+                        </span>
+                      </div>
+                      {certificate.id === 2 || certificate.id === 3 ? (
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-full">
+                          <CreditCard className="w-4 h-4 text-red-600" />
+                          <span className="text-sm font-semibold text-red-700">
+                            مدفوعة
+                          </span>
+                        </div>
+                      ) : null}
+                      {certificate.id === 3 ? (
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full">
+                          <Package className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-semibold text-blue-700">
+                            نسخة مطبوعة فقط
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
 
                     <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">

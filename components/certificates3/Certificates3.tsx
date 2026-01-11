@@ -1,6 +1,7 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
 
@@ -8,21 +9,27 @@ const certificates = [
   {
     id: 1,
     title: 'شهادة مشاركة مجانية',
-    description: 'احصل على شهادة مشاركة مجانية عند إكمال أي دورة تدريبية على المنصة'
+    description: 'احصل على شهادة مشاركة مجانية عند إكمال أي دورة تدريبية على المنصة',
+    image: '/certificate/free certificate.png'
   },
   {
     id: 2,
     title: 'شهادة معترف بها وطنياً',
-    description: 'شهادة معترف بها وطنياً تؤكد مهاراتك وتؤهلك للعمل في السوق المحلي'
+    description: 'شهادة معترف بها وطنياً تؤكد مهاراتك وتؤهلك للعمل في السوق المحلي',
+    image: '/certificate/national certifcate.png'
   },
   {
     id: 3,
     title: 'شهادة معترف بها دولياً',
-    description: 'شهادة معترف بها دولياً تفتح لك آفاق العمل والفرص على المستوى الدولي'
+    description: 'شهادة معترف بها دولياً تفتح لك آفاق العمل والفرص على المستوى الدولي',
+    image: '/certificate/internatinal certificate.png'
   }
 ]
 
 export function Certificates3 () {
+  const [selectedCertificate, setSelectedCertificate] = useState(2) // Start with certificate 2 selected
+  
+  const selectedCert = certificates.find(cert => cert.id === selectedCertificate) || certificates[1]
   return (
     <section className="relative py-16 sm:py-20 md:py-24 lg:py-28 bg-white" dir="rtl" id="certificates">
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -53,21 +60,38 @@ export function Certificates3 () {
           >
             <div className="space-y-4 flex flex-col h-full justify-center">
               {certificates.map((certificate, index) => {
-                const isHighlighted = certificate.id === 2
+                const isHighlighted = certificate.id === selectedCertificate
                 return (
                   <motion.div
                     key={certificate.id}
-                    className={`rounded-xl p-4 sm:p-5 transition-all duration-300 ${
+                    onClick={() => setSelectedCertificate(certificate.id)}
+                    className={`rounded-xl p-4 sm:p-5 relative overflow-hidden cursor-pointer ${
                       isHighlighted
-                        ? 'bg-gradient-to-br from-[#fbbf24] via-[#f59e0b] to-[#d97706] text-white shadow-xl'
+                        ? 'text-white shadow-xl'
                         : 'bg-white border-2 border-gray-100 text-gray-900 hover:border-amber-300 hover:shadow-lg'
                     }`}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.3 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-right">
+                    <AnimatePresence>
+                      {isHighlighted && (
+                        <motion.div 
+                          className="absolute inset-0 rounded-xl z-0 bg-cover bg-center bg-no-repeat"
+                          style={{
+                            backgroundImage: `url('/bgs/gold metal.jpg')`
+                          }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                        />
+                      )}
+                    </AnimatePresence>
+                    <div className="text-right relative z-10">
                       <h3 className={`text-base sm:text-lg font-bold mb-1.5 ${
                         isHighlighted ? 'text-white' : 'text-gray-900'
                       }`}>
@@ -93,14 +117,29 @@ export function Certificates3 () {
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           >
-            <div className="relative w-full max-w-md mx-auto lg:max-w-lg">
-              <Image
-                src="/home page/certificate.png"
-                alt="شهادة تعليمية"
-                width={600}
-                height={800}
-                className="w-full h-auto rounded-lg shadow-2xl"
-              />
+            <div className="relative w-full max-w-md mx-auto lg:max-w-lg aspect-[3/4]">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={selectedCertificate}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ 
+                    duration: 0.4,
+                    ease: [0.4, 0, 0.2, 1]
+                  }}
+                  className="absolute inset-0"
+                >
+                  <Image
+                    src={selectedCert.image}
+                    alt={selectedCert.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-contain rounded-lg shadow-2xl"
+                    priority={selectedCertificate === 2}
+                  />
+                </motion.div>
+              </AnimatePresence>
             </div>
           </motion.div>
         </div>

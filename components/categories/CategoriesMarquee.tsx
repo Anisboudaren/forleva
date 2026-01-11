@@ -33,7 +33,7 @@ export function CategoriesMarquee () {
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              direction: 'ltr',
+              direction: 'rtl',
               WebkitOverflowScrolling: 'touch'
             }}
           >
@@ -44,7 +44,7 @@ export function CategoriesMarquee () {
                 className='flex-shrink-0 w-64 sm:w-72 snap-start'
               >
                 <div className='relative overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100'>
-                  <div className='relative h-32 sm:h-36'>
+                  <div className='relative h-52 sm:h-64'>
                     <Image
                       src={category.image}
                       alt={category.name}
@@ -53,11 +53,11 @@ export function CategoriesMarquee () {
                       sizes='18rem'
                     />
                     <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/0' />
-                    <div className='absolute bottom-0 right-0 left-0 p-4 text-right'>
-                      <p className='text-sm font-medium text-yellow-200 mb-1 sm:text-base'>
+                    <div className='absolute bottom-0 right-0 left-0 p-5 sm:p-6 text-right'>
+                      <p className='text-sm font-medium text-yellow-200 mb-2 sm:text-base'>
                         {category.category} • {category.courses}
                       </p>
-                      <p className='text-xl font-bold text-white sm:text-2xl'>
+                      <p className='text-2xl font-bold text-white sm:text-3xl lg:text-4xl'>
                         {category.name}
                       </p>
                     </div>
