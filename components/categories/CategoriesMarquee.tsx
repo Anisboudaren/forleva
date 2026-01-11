@@ -2,11 +2,28 @@
 
 import { useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 import { categories } from './Categories'
 
 export function CategoriesMarquee () {
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollRef.current) return
+    
+    const cardWidth = 288 // w-72 = 18rem = 288px
+    const gap = 24 // gap-6 = 1.5rem = 24px
+    const scrollAmount = cardWidth + gap
+    
+    // In RTL, positive scrollLeft scrolls to show earlier content (visually right)
+    // Negative scrollLeft scrolls to show later content (visually left)
+    if (direction === 'right') {
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+    } else {
+      scrollRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+    }
+  }
 
   // Duplicate categories for seamless scrolling
   const duplicated = [...categories, ...categories]
@@ -27,6 +44,22 @@ export function CategoriesMarquee () {
         </div>
 
         <div className='relative mt-6 sm:mt-8 w-full'>
+          {/* Navigation Buttons - Desktop Only */}
+          <button
+            onClick={() => scroll('right')}
+            className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="تمرير للخلف"
+          >
+            <ChevronRight className="w-6 h-6 text-gray-700" />
+          </button>
+          <button
+            onClick={() => scroll('left')}
+            className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="تمرير للأمام"
+          >
+            <ChevronLeft className="w-6 h-6 text-gray-700" />
+          </button>
+
           <div
             ref={scrollRef}
             className='relative flex gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-2 w-full snap-x snap-mandatory scroll-smooth'

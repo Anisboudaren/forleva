@@ -39,10 +39,10 @@ const steps = [
     description: 'نوفر لك عدة خيارات دفع مرنة وآمنة. يمكنك الدفع باستخدام بطاقات الائتمان، التحويل البنكي، أو أي طريقة دفع أخرى تناسبك. جميع المعاملات آمنة ومشفرة.',
     expandedDescription: 'نقدم خيارات دفع متعددة لراحتك. يمكنك الدفع باستخدام البطاقات الائتمانية والمدفوعة مسبقاً، التحويل البنكي المباشر، أو المحافظ الإلكترونية. جميع معاملاتك محمية بأعلى معايير الأمان والتشفير.',
     paymentImages: [
+      '/how_to_use/dahbia pay .png',
       '/how_to_use/visa pay .png',
       '/how_to_use/mc pay .png',
-      '/how_to_use/CIB pay .png',
-      '/how_to_use/dahbia pay .png'
+      '/how_to_use/CIB pay .png'
     ],
     icon: CreditCard
   },
@@ -68,10 +68,10 @@ export default function HowItWorksPage () {
   const [currentPaymentIndex, setCurrentPaymentIndex] = useState(0)
 
   const paymentImages = [
+    '/how_to_use/dahbia pay .png',
     '/how_to_use/visa pay .png',
     '/how_to_use/mc pay .png',
-    '/how_to_use/CIB pay .png',
-    '/how_to_use/dahbia pay .png'
+    '/how_to_use/CIB pay .png'
   ]
 
   const nextPayment = () => {
@@ -98,7 +98,7 @@ export default function HowItWorksPage () {
         {/* Image - Mobile: Full width, stick to top */}
         <div className="lg:hidden w-full pt-20 sm:pt-24">
           <Image
-            src="/how_to_use/girl with tablet.png"
+            src="/how_to_use/girl with tablet (2).png"
             alt="كيف تعمل المنصة"
             width={500}
             height={600}
@@ -166,7 +166,7 @@ export default function HowItWorksPage () {
                   transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
                 >
                   <Image
-                    src="/how_to_use/girl with tablet.png"
+                    src="/how_to_use/girl with tablet (2).png"
                     alt="كيف تعمل المنصة"
                     width={500}
                     height={600}
@@ -218,17 +218,10 @@ export default function HowItWorksPage () {
                       <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-[#fbbf24] via-[#f59e0b] to-[#d97706] flex items-center justify-center text-white font-bold text-xl shadow-lg">
                         {step.id}
                       </div>
-                      <div className="inline-flex items-center gap-3 px-4 py-2 bg-amber-50 rounded-full">
-                        <Icon className="w-5 h-5 text-amber-600" />
-                        <span className="text-sm font-semibold text-amber-900">
-                          {step.title}
-                        </span>
-                      </div>
+                      <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                        {step.title}
+                      </h3>
                     </div>
-
-                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                      {step.title}
-                    </h3>
 
                     <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
                       {step.description}
@@ -245,10 +238,13 @@ export default function HowItWorksPage () {
                       <div className="pt-2">
                         <Link 
                           href="/login"
-                          className="inline-flex items-center gap-2 text-base font-medium text-amber-600 hover:text-amber-700 transition-colors underline underline-offset-4"
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold text-white rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                          style={{
+                            background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                          }}
                         >
                           يمكنك إنشاء حسابك من هنا
-                          <span className="text-amber-600">→</span>
+                          <UserPlus className="w-5 h-5" />
                         </Link>
                       </div>
                     )}
@@ -258,10 +254,13 @@ export default function HowItWorksPage () {
                       <div className="pt-2">
                         <Link 
                           href="/#choose-course"
-                          className="inline-flex items-center gap-2 text-base font-medium text-amber-600 hover:text-amber-700 transition-colors underline underline-offset-4"
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold text-white rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                          style={{
+                            background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                          }}
                         >
                           يمكنك تعلم كيفية اختيار الدورة المناسبة من هنا
-                          <span className="text-amber-600">→</span>
+                          <BookOpen className="w-5 h-5" />
                         </Link>
                       </div>
                     )}
