@@ -21,7 +21,7 @@ const steps = [
     id: 2,
     title: 'اختر الدورات التي تريد المشاركة فيها',
     description: 'تصفح مجموعتنا الواسعة من الدورات التعليمية المتنوعة في مختلف المجالات. كل دورة مصممة بعناية لتوفر لك محتوى عالي الجودة ومهارات عملية قابلة للتطبيق.',
-    expandedDescription: 'استكشف مئات الدورات في مجالات مختلفة مثل البرمجة، التصميم، التسويق الرقمي، ريادة الأعمال، واللغات. كل دورة تتضمن محتوى فيديو عالي الجودة، مواد تعليمية، وتمارين عملية لمساعدتك على إتقان المهارات.',
+    expandedDescription: 'استكشف مئات الدورات في مجالات مختلفة، كل دورة تتضمن شرح عملي تطبيقي بفيديوهات صورة و صوت واضح ، مواد تعليمية ،مرافقة و دعم من طرف المدربين بعد المشاركة في كل دورة',
     image: '/home page/choose courses.png',
     icon: BookOpen
   },
@@ -36,8 +36,8 @@ const steps = [
   {
     id: 4,
     title: 'ادفع بطريقة الدفع التي تناسبك',
-    description: 'نوفر لك عدة خيارات دفع مرنة وآمنة. يمكنك الدفع باستخدام بطاقات الائتمان، التحويل البنكي، أو أي طريقة دفع أخرى تناسبك. جميع المعاملات آمنة ومشفرة.',
-    expandedDescription: 'نقدم خيارات دفع متعددة لراحتك. يمكنك الدفع باستخدام البطاقات الائتمانية والمدفوعة مسبقاً، التحويل البنكي المباشر، أو المحافظ الإلكترونية. جميع معاملاتك محمية بأعلى معايير الأمان والتشفير.',
+    description: 'نوفر لك عدة خيارات دفع مرنة وآمنة. يمكنك الدفع باستخدام CCP و بريدي موب، بطاقات الائتمان، التحويل البنكي، أو أي طريقة دفع أخرى تناسبك. جميع المعاملات آمنة ومشفرة.',
+    expandedDescription: 'نقدم خيارات دفع متعددة لراحتك. يمكنك الدفع باستخدام CCP و بريدي موب، البطاقات الائتمانية والمدفوعة مسبقاً، التحويل البنكي المباشر، أو المحافظ الإلكترونية. جميع معاملاتك محمية بأعلى معايير الأمان والتشفير.',
     paymentImages: [
       '/how_to_use/dahbia pay .png',
       '/how_to_use/visa pay .png',
@@ -49,8 +49,8 @@ const steps = [
   {
     id: 5,
     title: 'مبروك! تم تفعيل الدورات في حسابك',
-    description: 'بعد إتمام عملية الدفع، سيتم تفعيل جميع الدورات التي اخترتها فوراً في حسابك. يمكنك البدء في التعلم مباشرة والوصول إلى جميع المواد التعليمية.',
-    expandedDescription: 'فور إتمام عملية الدفع، سيتم تفعيل جميع الدورات التي اخترتها في حسابك تلقائياً. ستحصل على وصول مدى الحياة لجميع المحتويات، ويمكنك التعلم في أي وقت ومن أي مكان. كل شيء منظم ومرتب لراحتك.',
+    description: 'بعد إتمام عملية الدفع، سيتم تفعيل حسابك تلقائياً وسيتواصل معك فريقنا في أقرب وقت ممكن لتأكيد التفعيل ومتابعة رحلتك التعليمية.',
+    expandedDescription: 'وصول لمدة 12 شهراً لجميع محتويات الدورات التي اشتريتها • إمكانية الحصول على شهادة المشاركة • تعلم في أي وقت ومن أي مكان',
     image: '/home page/get certifcate.png', // Will use success/completion visual
     icon: Sparkles
   },
@@ -243,7 +243,7 @@ export default function HowItWorksPage () {
                             background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
                           }}
                         >
-                          يمكنك إنشاء حسابك من هنا
+                          انشأ حسابك المجاني
                           <UserPlus className="w-5 h-5" />
                         </Link>
                       </div>
@@ -259,8 +259,24 @@ export default function HowItWorksPage () {
                             background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
                           }}
                         >
-                          يمكنك تعلم كيفية اختيار الدورة المناسبة من هنا
+                          تصفح الدورات المتاحة
                           <BookOpen className="w-5 h-5" />
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* Link for step 3 */}
+                    {step.id === 3 && (
+                      <div className="pt-2">
+                        <Link 
+                          href="/certificates"
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold text-white rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                          style={{
+                            background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                          }}
+                        >
+                          اكتشف الشهادات المتاحة
+                          <Award className="w-5 h-5" />
                         </Link>
                       </div>
                     )}
@@ -393,33 +409,37 @@ export default function HowItWorksPage () {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 sm:py-20 bg-gradient-to-br from-amber-50 to-white">
-        <div className="px-4 mx-auto max-w-4xl sm:px-6 lg:px-8 text-center">
+      <section className="relative pt-0 pb-16 sm:pb-20 md:pb-24 lg:pb-28 bg-white" dir="rtl">
+        <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <motion.div
-            className="space-y-6"
-            initial={{ opacity: 0, y: 20 }}
+            className="relative overflow-hidden rounded-3xl p-6 sm:p-8 md:p-10 lg:p-12"
+            style={{
+              background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+            }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-              جاهز للبدء؟
-            </h2>
-            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-              ابدأ رحلتك التعليمية اليوم مع <span className="font-bold">حساب مجاني</span> واتبع الخطوات البسيطة للوصول إلى أهدافك
-            </p>
-            <div className="pt-4">
-              <a
+            <div className="relative z-10 text-center">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 sm:mb-5">
+                جاهز لتغيير حياتك؟
+              </h2>
+              <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 max-w-3xl mx-auto">
+                ابدأ رحلتك التعليمية اليوم بإنشاء حساب مجاني و افتح أبواب النجاح
+              </p>
+              <Link
                 href="/login"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-white rounded-full transition-all duration-300 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
-                style={{
-                  background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
-                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm sm:text-base font-bold text-amber-900 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
               >
-                <UserPlus className="w-5 h-5" />
+                <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
                 أنشئ حسابك المجاني الآن
-              </a>
+              </Link>
             </div>
+
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
           </motion.div>
         </div>
       </section>

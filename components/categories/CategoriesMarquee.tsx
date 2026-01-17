@@ -85,7 +85,7 @@ export function CategoriesMarquee () {
                       className='object-cover w-full h-full'
                       sizes='18rem'
                     />
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/0' />
+                    <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/0' />
                     <div className='absolute bottom-0 right-0 left-0 p-5 sm:p-6 text-right'>
                       <p className='text-sm font-medium text-yellow-200 mb-2 sm:text-base'>
                         {category.category} • {category.courses}

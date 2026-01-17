@@ -111,7 +111,7 @@ export function Hero3 () {
                 <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-100">
                   <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-700" />
                 </div>
-                <span className="text-xs sm:text-sm font-medium">+50 دورة متخصصة</span>
+                <span className="text-xs sm:text-sm font-medium">+200 دورة متخصصة</span>
               </div>
             </motion.div>
 

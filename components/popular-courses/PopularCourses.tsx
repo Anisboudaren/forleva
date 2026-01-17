@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 
 export const courses = [
@@ -83,6 +84,20 @@ export const courses = [
 export function PopularCourses () {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return
+    
+    const cardWidth = 320 // w-80 = 20rem = 320px (md breakpoint)
+    const gap = 24 // gap-6 = 1.5rem = 24px
+    const scrollAmount = cardWidth + gap
+    
+    if (direction === 'right') {
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+    } else {
+      scrollContainerRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
+    }
+  }
+
   return (
     <section className='relative bg-white pt-12 pb-0 sm:pt-16 sm:pb-0 lg:pt-20 lg:pb-0'>
       <div className='relative z-10 px-4 py-12 sm:py-16 sm:px-6 lg:px-8 lg:max-w-7xl lg:mx-auto'>
@@ -96,7 +111,23 @@ export function PopularCourses () {
         </div>
 
         <div className='mt-12 pb-8 lg:mt-16'>
-          <div className='flex flex-col items-center justify-center overflow-hidden'>
+          <div className='relative flex flex-col items-center justify-center overflow-hidden'>
+            {/* Navigation Buttons - Desktop Only */}
+            <button
+              onClick={() => scroll('right')}
+              className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              aria-label="تمرير للخلف"
+            >
+              <ChevronRight className="w-6 h-6 text-gray-700" />
+            </button>
+            <button
+              onClick={() => scroll('left')}
+              className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              aria-label="تمرير للأمام"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </button>
+
             <div
               ref={scrollContainerRef}
               className='flex justify-start w-full gap-6 pb-8 overflow-x-auto snap-x scrollbar-hide'

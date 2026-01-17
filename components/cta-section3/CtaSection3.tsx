@@ -23,7 +23,7 @@ export function CtaSection3 () {
               جاهز لتغيير حياتك؟
             </h2>
             <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 max-w-3xl mx-auto">
-              ابدأ رحلتك التعليمية اليوم مع <span className="font-bold">حساب مجاني</span> وافتح أبواب النجاح
+              ابدأ رحلتك التعليمية اليوم بإنشاء حساب مجاني و افتح أبواب النجاح
             </p>
             <Link
               href="/login"

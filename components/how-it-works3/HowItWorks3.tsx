@@ -12,7 +12,7 @@ const steps = [
   },
   {
     image: '/home page/choose courses.png',
-    title: 'اختر الدورة المناسبة',
+    title: 'اختر الدورات المناسبة',
     description: 'استكشف مجموعة واسعة من الدورات واختر ما يناسب أهدافك ومهاراتك'
   },
   {
