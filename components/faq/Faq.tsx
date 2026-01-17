@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { UserPlus, LogIn } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 
 const paymentImages = [
@@ -247,22 +247,13 @@ export function Faq () {
                 <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 max-w-3xl mx-auto">
                   ابدأ التعلم من دورات مسجلة <span className="font-bold">مفصلة خطوة بخطوة</span> يمكنك مشاهدتها في أي وقت. مع إمكانية التواصل مع المدربين والحصول على الدعم عند الحاجة. لا تنتظر، ابدأ اليوم
                 </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Link
-                    href="/signup"
-                    className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-amber-900 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
-                  >
-                    <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    سجل الآن مجاناً
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-white bg-white/20 backdrop-blur-sm border-2 border-white/30 rounded-full shadow-xl hover:bg-white/30 hover:shadow-2xl hover:scale-105 transition-all duration-300"
-                  >
-                    <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
-                    تسجيل الدخول
-                  </Link>
-                </div>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold text-amber-900 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                >
+                  <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  أنشئ حسابك المجاني الآن
+                </Link>
               </div>
 
               {/* Decorative elements */}

@@ -140,26 +140,30 @@ export function PopularCourses () {
                       </div>
                       
                       {/* Price and Promotion on Image Left */}
-                      <div className='absolute bottom-3 left-3'>
+                      <div className='absolute bottom-3 left-3 flex flex-col gap-1.5'>
+                        {course.price > 2000 && (
+                          <span 
+                            className='inline-flex items-center justify-center w-fit text-sm font-semibold whitespace-nowrap bg-black/60 backdrop-blur-sm px-2.5 py-1.5 rounded border border-white/30'
+                            style={{
+                              color: '#ffffff',
+                              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                              textDecoration: 'line-through',
+                              textDecorationColor: 'rgba(255, 255, 255, 0.7)',
+                              textDecorationThickness: '2px',
+                              textUnderlineOffset: '0.3em'
+                            }}
+                          >
+                            {Math.round(course.price * 1.3).toLocaleString()} د.ج
+                          </span>
+                        )}
                         <span 
-                          className='relative inline-block text-xl font-black bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg border-2'
+                          className='inline-block text-xl font-black bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg border-2'
                           style={{
                             color: '#fbbf24',
                             borderColor: '#fbbf24',
                             textShadow: '0 2px 4px rgba(0,0,0,0.5)'
                           }}
                         >
-                          {course.price > 2000 && (
-                            <span 
-                              className='absolute -top-4 -left-2 flex items-center justify-center w-8 h-8 text-xs font-bold text-black bg-gradient-to-r from-amber-400 to-amber-600 rounded-full border-2 border-white/30 shadow-lg z-10'
-                              style={{
-                                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                                transform: 'rotate(-12deg)'
-                              }}
-                            >
-                              -{Math.round((0.3 / 1.3) * 100)}%
-                            </span>
-                          )}
                           {course.price.toLocaleString()} د.ج
                         </span>
                       </div>
@@ -175,7 +179,7 @@ export function PopularCourses () {
                       <Link href={`/courses/${course.id}`} title=''>
                         <div className='flex items-center gap-2 mb-2'>
                           <p className='text-lg font-bold text-gray-900 text-right'>{course.title}</p>
-                          <span className='text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded whitespace-nowrap flex-shrink-0'>
+                          <span className='inline-flex items-center justify-center text-xs font-bold text-amber-950 bg-amber-200 px-3 py-1.5 rounded-full border border-amber-300/50 shadow-sm whitespace-nowrap flex-shrink-0'>
                             {course.category}
                           </span>
                         </div>
