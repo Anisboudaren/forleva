@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
-import { CourseStatus, OrderStatus } from "@prisma/client"
 import { GradientText } from "@/components/text/gradient-text"
-import { BookOpen, Play, User, FileText } from "lucide-react"
+import { BookOpen, User, FileText } from "lucide-react"
 import LearningStudioClient from "@/components/student/learning-studio-client"
 
 export default async function LearningStudioPage({
@@ -20,10 +19,10 @@ export default async function LearningStudioPage({
 
   const [order, course] = await Promise.all([
     prisma.order.findFirst({
-      where: { userId: session.userId, courseId: id, status: OrderStatus.CONFIRMED },
+      where: { userId: session.userId, courseId: id, status: "CONFIRMED" },
     }),
     prisma.course.findFirst({
-      where: { id, status: CourseStatus.PUBLISHED },
+      where: { id, status: "PUBLISHED" },
       include: {
         teacher: { select: { id: true, fullName: true } },
         sections: {
