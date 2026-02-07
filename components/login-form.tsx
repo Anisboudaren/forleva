@@ -10,22 +10,24 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
-import { useSearchParams } from "next/navigation"
 import { useState, useRef } from "react"
 import { GradientText } from "@/components/text/gradient-text"
 
-type LoginTab = 'student' | 'teacher'
+type LoginTab = "student" | "teacher"
+
+type LoginFormProps = React.ComponentProps<"form"> & {
+  showRegisteredMessage?: boolean
+}
 
 export function LoginForm({
   className,
+  showRegisteredMessage = false,
   ...props
-}: React.ComponentProps<"form">) {
-  const searchParams = useSearchParams()
+}: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [tab, setTab] = useState<LoginTab>('student')
+  const [tab, setTab] = useState<LoginTab>("student")
   const formRef = useRef<HTMLFormElement>(null)
   const [error, setError] = useState<string | null>(null)
-  const registered = searchParams.get('registered') === '1'
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -131,7 +133,7 @@ export function LoginForm({
             className="border-gray-200 focus:border-yellow-500 focus:ring-yellow-500 text-right"
           />
         </Field>
-        {registered && (
+        {showRegisteredMessage && (
           <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2" role="status">
             تم إنشاء حسابك. سجّل الدخول الآن.
           </p>

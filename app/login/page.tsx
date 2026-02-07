@@ -1,7 +1,14 @@
 import Image from "next/image"
 import { LoginForm } from "@/components/login-form"
 
-export default function LoginPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function LoginPage({ searchParams }: Props) {
+  const params = await searchParams
+  const showRegisteredMessage = params.registered === "1"
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2 bg-gray-50">
       {/* Left section with image */}
@@ -31,7 +38,7 @@ export default function LoginPage() {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-md">
-            <LoginForm />
+            <LoginForm showRegisteredMessage={showRegisteredMessage} />
           </div>
         </div>
       </div>
