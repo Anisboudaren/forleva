@@ -6,11 +6,20 @@ import Link from "next/link"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
 import { formatRelativeAr } from "@/lib/format-date"
-import { OrderStatus, type Prisma } from "@prisma/client"
+import type { OrderStatus } from "@/lib/schema-enums"
 
-type OrderWithCourse = Prisma.OrderGetPayload<{
-  include: { course: { include: { teacher: true } } }
-}>
+type OrderWithCourse = {
+  id: string
+  status: OrderStatus
+  createdAt: Date
+  course: {
+    id: string
+    title: string
+    category: string
+    imageUrl: string | null
+    teacher: { fullName: string | null } | null
+  }
+}
 
 type MyCourse = {
   id: string
@@ -42,7 +51,7 @@ export default async function MyCoursesPage() {
     where: {
       userId: session.userId,
       status: {
-        in: [OrderStatus.PENDING, OrderStatus.CONFIRMED],
+        in: ["PENDING", "CONFIRMED"],
       },
     },
     include: {
@@ -255,10 +264,10 @@ export default async function MyCoursesPage() {
             {notStartedCourses.map((course) => (
               <Link
                 key={course.id}
-                href={course.orderStatus === OrderStatus.PENDING ? "#" : `/courses/${course.id}`}
-                aria-disabled={course.orderStatus === OrderStatus.PENDING}
+                href={course.orderStatus === "PENDING" ? "#" : `/courses/${course.id}`}
+                aria-disabled={course.orderStatus === "PENDING"}
                 className={`group relative overflow-hidden border border-gray-200 rounded-xl transition-all duration-300 ${
-                  course.orderStatus === OrderStatus.PENDING
+                  course.orderStatus === "PENDING"
                     ? "cursor-default opacity-70"
                     : "hover:shadow-lg"
                 }`}
@@ -300,12 +309,12 @@ export default async function MyCoursesPage() {
                       </span>
                       <span
                         className={
-                          course.orderStatus === OrderStatus.PENDING
+                          course.orderStatus === "PENDING"
                             ? "text-gray-500 font-medium"
                             : "text-yellow-600 font-medium"
                         }
                       >
-                        {course.orderStatus === OrderStatus.PENDING ? "بانتظار تأكيد الطلب" : "ابدأ الآن"}
+                        {course.orderStatus === "PENDING" ? "بانتظار تأكيد الطلب" : "ابدأ الآن"}
                       </span>
                     </div>
                   </div>

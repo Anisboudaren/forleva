@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { OrderStatus } from '@prisma/client'
+import type { OrderStatus } from '@/lib/schema-enums'
 
-const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const
+const VALID_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
 
 /**
  * PATCH /api/admin/orders/[id] — admin-only.
@@ -27,7 +27,7 @@ export async function PATCH(
     const adminNotes = typeof body.adminNotes === 'string' ? body.adminNotes.trim() || null : undefined
 
     const updateData: { status?: OrderStatus; adminNotes?: string | null } = {}
-    if (statusInput && VALID_STATUSES.includes(statusInput as (typeof VALID_STATUSES)[number])) {
+    if (statusInput && VALID_STATUSES.includes(statusInput as OrderStatus)) {
       updateData.status = statusInput as OrderStatus
     }
     if (adminNotes !== undefined) updateData.adminNotes = adminNotes

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
-import { CourseStatus } from '@prisma/client'
 
 /**
  * POST /api/orders — create order (student only).
@@ -22,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'معرف الدورة مطلوب' }, { status: 400 })
     }
     const course = await prisma.course.findFirst({
-      where: { id: courseId, status: CourseStatus.PUBLISHED },
+      where: { id: courseId, status: 'PUBLISHED' },
     })
     if (!course) {
       return NextResponse.json({ error: 'الدورة غير موجودة أو غير منشورة' }, { status: 404 })

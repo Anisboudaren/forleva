@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole, AccountStatus } from '@prisma/client'
 
 export async function GET() {
   const session = await getAdminSession()
@@ -12,20 +11,20 @@ export async function GET() {
     await prisma.$connect()
 
     const [studentCount, teacherCount, adminCount, activeUsers, newThisMonth] = await Promise.all([
-      prisma.user.count({ where: { role: UserRole.STUDENT } }),
-      prisma.user.count({ where: { role: UserRole.TEACHER } }),
+      prisma.user.count({ where: { role: 'STUDENT' } }),
+      prisma.user.count({ where: { role: 'TEACHER' } }),
       prisma.user.count({
-        where: { role: { in: [UserRole.SUPER_ADMIN, UserRole.ADMIN] } },
+        where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] } },
       }),
       prisma.user.count({
         where: {
-          role: { in: [UserRole.STUDENT, UserRole.TEACHER] },
-          status: AccountStatus.ACTIVE,
+          role: { in: ['STUDENT', 'TEACHER'] },
+          status: 'ACTIVE',
         },
       }),
       prisma.user.count({
         where: {
-          role: { in: [UserRole.STUDENT, UserRole.TEACHER] },
+          role: { in: ['STUDENT', 'TEACHER'] },
           createdAt: { gte: startOfThisMonth() },
         },
       }),

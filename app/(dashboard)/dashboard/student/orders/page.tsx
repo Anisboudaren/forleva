@@ -4,9 +4,15 @@ import { formatDateAr, formatRelativeAr } from "@/lib/format-date"
 import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { GradientText } from "@/components/text/gradient-text"
 import { ShoppingCart, Clock, BookOpen } from "lucide-react"
-import type { Prisma } from "@prisma/client"
-
-type OrderWithCourse = Prisma.OrderGetPayload<{ include: { course: true } }>
+type OrderWithCourse = {
+  id: string
+  userId: string
+  courseId: string
+  status: string
+  amount: number
+  createdAt: Date
+  course: { id: string; title: string; category: string }
+}
 
 const STATUS_CONFIG: Record<
   string,

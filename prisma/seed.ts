@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { PrismaClient, UserRole, AccountStatus, CourseStatus, ContentType } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import bcrypt from 'bcrypt'
 
@@ -44,8 +44,8 @@ async function main() {
       data: {
         email: TEACHER_EMAIL,
         passwordHash: teacherHash,
-        role: UserRole.TEACHER,
-        status: AccountStatus.ACTIVE,
+        role: 'TEACHER',
+        status: 'ACTIVE',
         fullName: 'مدرب المكياج',
       },
     })
@@ -67,7 +67,7 @@ async function main() {
   await prisma.course.create({
     data: {
       teacherId: teacher.id,
-      status: CourseStatus.PUBLISHED,
+      status: 'PUBLISHED',
       title: 'دورة فن المكياج الاحترافي',
       category: 'تصميم',
       price: 2990,
@@ -156,7 +156,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.TITLE,
+                  type: 'TITLE',
                   title: 'الفرش والأدوات الأساسية',
                   position: 0,
                 },

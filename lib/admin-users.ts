@@ -1,6 +1,5 @@
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole } from '@prisma/client'
 import { formatDateAr, formatRelativeAr } from '@/lib/format-date'
 
 export type UserListItem = {
@@ -21,7 +20,7 @@ export async function getUsersListForAdmin(): Promise<UserListItem[]> {
   try {
     await prisma.$connect()
     const users = await prisma.user.findMany({
-      where: { role: { in: [UserRole.STUDENT, UserRole.TEACHER] } },
+      where: { role: { in: ['STUDENT', 'TEACHER'] } },
       orderBy: { createdAt: 'desc' },
     })
     return users.map((u) => {
@@ -32,7 +31,7 @@ export async function getUsersListForAdmin(): Promise<UserListItem[]> {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
-          role: u.role === UserRole.TEACHER ? 'teacher' : 'student',
+          role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: formatDateAr(u.createdAt),
           lastActive: formatRelativeAr(u.updatedAt),
           status: String(u.status).toLowerCase(),
@@ -44,7 +43,7 @@ export async function getUsersListForAdmin(): Promise<UserListItem[]> {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
-          role: u.role === UserRole.TEACHER ? 'teacher' : 'student',
+          role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: '—',
           lastActive: '—',
           status: 'active',

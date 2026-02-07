@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { OrderStatus } from '@prisma/client'
+import type { OrderStatus } from '@/lib/schema-enums'
 
-const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const
+const VALID_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
 
 /**
  * GET /api/admin/orders — admin-only.
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')?.trim() || ''
 
     const statusFilter =
-      statusParam && VALID_STATUSES.includes(statusParam as (typeof VALID_STATUSES)[number])
+      statusParam && VALID_STATUSES.includes(statusParam as OrderStatus)
         ? (statusParam as OrderStatus)
         : undefined
 

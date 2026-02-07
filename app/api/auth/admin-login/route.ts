@@ -6,7 +6,6 @@ import {
   getAdminSessionCookieName,
   getAdminSessionMaxAge,
 } from '@/lib/auth-session'
-import { AccountStatus, UserRole } from '@prisma/client'
 
 export async function POST(req: Request) {
   try {
@@ -31,13 +30,13 @@ export async function POST(req: Request) {
         { status: 401 }
       )
     }
-    if (user.status !== AccountStatus.ACTIVE) {
+    if (user.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'الحساب غير مفعل أو موقوف. تواصل مع الإدارة.' },
         { status: 403 }
       )
     }
-    if (user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.ADMIN && user.role !== UserRole.TEACHER) {
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'TEACHER') {
       return NextResponse.json(
         { error: 'غير مصرح لك بالدخول إلى لوحة الإدارة' },
         { status: 403 }
@@ -58,7 +57,7 @@ export async function POST(req: Request) {
     const res = NextResponse.json({
       success: true,
       role: user.role,
-      redirect: (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN) ? '/admin' : '/dashboard/teacher',
+      redirect: (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') ? '/admin' : '/dashboard/teacher',
     })
     const name = getAdminSessionCookieName()
     res.cookies.set(name, sessionValue, {

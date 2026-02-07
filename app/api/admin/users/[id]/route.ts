@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole } from '@prisma/client'
+import type { UserRole } from '@/lib/schema-enums'
 
 /** GET /api/admin/users/[id] — admin-only, safe contact fields for orders/client panel */
 export async function GET(
@@ -56,7 +56,7 @@ export async function PATCH(
     const whatsapp = (body.whatsapp as string)?.trim().replace(/\s/g, '') || undefined
     const email = (body.email as string)?.trim() || undefined
     const roleInput = (body.role as string)?.toLowerCase()
-    const role = roleInput === 'teacher' ? UserRole.TEACHER : UserRole.STUDENT
+    const role: UserRole = roleInput === 'teacher' ? 'TEACHER' : 'STUDENT'
 
     if (!fullName || !phone) {
       return NextResponse.json(

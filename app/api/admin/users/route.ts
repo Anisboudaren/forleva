@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole } from '@prisma/client'
 import { formatDateAr, formatRelativeAr } from '@/lib/format-date'
 
 export async function GET() {
@@ -12,7 +11,7 @@ export async function GET() {
   try {
     await prisma.$connect()
     const users = await prisma.user.findMany({
-      where: { role: { in: [UserRole.STUDENT, UserRole.TEACHER] } },
+      where: { role: { in: ['STUDENT', 'TEACHER'] } },
       orderBy: { createdAt: 'desc' },
     })
     const list = users.map((u) => {
@@ -23,7 +22,7 @@ export async function GET() {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
-          role: u.role === UserRole.TEACHER ? 'teacher' : 'student',
+          role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: formatDateAr(u.createdAt),
           lastActive: formatRelativeAr(u.updatedAt),
           status: String(u.status).toLowerCase(),
@@ -36,7 +35,7 @@ export async function GET() {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
-          role: u.role === UserRole.TEACHER ? 'teacher' : 'student',
+          role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: '—',
           lastActive: '—',
           status: 'active',

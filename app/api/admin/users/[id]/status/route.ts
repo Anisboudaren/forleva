@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { AccountStatus } from '@prisma/client'
+import type { AccountStatus } from '@/lib/schema-enums'
 
 const VALID_STATUSES: AccountStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED', 'BLOCKED']
 

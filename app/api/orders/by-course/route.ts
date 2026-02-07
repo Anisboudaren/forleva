@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
-import { OrderStatus } from '@prisma/client'
-
 /**
  * GET /api/orders/by-course?courseId=...
  * Returns the current student's order status for a specific course, if any.

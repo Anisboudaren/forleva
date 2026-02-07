@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { CourseStatus } from '@prisma/client'
 
 /**
  * Public API: list published courses (no auth).
@@ -8,7 +7,7 @@ import { CourseStatus } from '@prisma/client'
 export async function GET() {
   try {
     const courses = await prisma.course.findMany({
-      where: { status: CourseStatus.PUBLISHED },
+      where: { status: 'PUBLISHED' },
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,

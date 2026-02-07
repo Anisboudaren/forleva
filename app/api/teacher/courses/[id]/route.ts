@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
-import { CourseStatus, type ContentType as PrismaContentType } from '@prisma/client'
+import type { CourseStatus, ContentType } from '@/lib/schema-enums'
 
-const CONTENT_TYPE_MAP: Record<string, PrismaContentType> = {
+const CONTENT_TYPE_MAP: Record<string, ContentType> = {
   video: 'VIDEO',
   quiz: 'QUIZ',
   external: 'EXTERNAL',

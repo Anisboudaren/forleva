@@ -6,7 +6,6 @@ import {
   getUserSessionCookieName,
   getUserSessionMaxAge,
 } from '@/lib/user-session'
-import { UserRole, AccountStatus } from '@prisma/client'
 
 export async function POST(req: Request) {
   try {
@@ -32,13 +31,13 @@ export async function POST(req: Request) {
         { status: 401 }
       )
     }
-    if (user.role !== UserRole.STUDENT && user.role !== UserRole.TEACHER) {
+    if (user.role !== 'STUDENT' && user.role !== 'TEACHER') {
       return NextResponse.json(
         { error: 'استخدم لوحة الإدارة لتسجيل الدخول كمسؤول' },
         { status: 403 }
       )
     }
-    if (user.status !== AccountStatus.ACTIVE) {
+    if (user.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'الحساب غير مفعل أو موقوف. تواصل مع الإدارة.' },
         { status: 403 }
@@ -58,7 +57,7 @@ export async function POST(req: Request) {
       role: user.role,
       email: user.email,
     })
-    const redirectPath = user.role === UserRole.TEACHER ? '/dashboard/teacher' : '/dashboard/student'
+    const redirectPath = user.role === 'TEACHER' ? '/dashboard/teacher' : '/dashboard/student'
     const res = NextResponse.json({
       success: true,
       redirect: redirectPath,

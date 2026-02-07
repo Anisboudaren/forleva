@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole } from '@prisma/client'
 import { formatDateAr, formatRelativeAr } from '@/lib/format-date'
 
 export async function GET() {
@@ -21,7 +20,7 @@ export async function GET() {
       phone: u.phone ?? '—',
       whatsapp: u.whatsapp ?? undefined,
       email: u.email ?? undefined,
-      role: u.role === UserRole.SUPER_ADMIN ? 'super_admin' : 'admin',
+      role: u.role === 'SUPER_ADMIN' ? 'super_admin' : 'admin',
       joinDate: formatDateAr(u.createdAt),
       lastActive: formatRelativeAr(u.updatedAt),
       status: u.status.toLowerCase(),

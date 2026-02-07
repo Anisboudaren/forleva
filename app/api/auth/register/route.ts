@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import { prisma } from '@/lib/db'
-import { UserRole, AccountStatus } from '@prisma/client'
+import type { UserRole, AccountStatus } from '@/lib/schema-enums'
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
-    const status = role === UserRole.TEACHER ? AccountStatus.PENDING : AccountStatus.ACTIVE
+    const status: AccountStatus = role === 'TEACHER' ? 'PENDING' : 'ACTIVE'
     await prisma.user.create({
       data: {
         fullName,

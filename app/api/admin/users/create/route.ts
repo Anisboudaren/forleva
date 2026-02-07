@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole, AccountStatus } from '@prisma/client'
+import type { UserRole, AccountStatus } from '@/lib/schema-enums'
 
 export async function POST(req: Request) {
   const session = await getAdminSession()
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const whatsapp = (body.whatsapp as string)?.trim().replace(/\s/g, '') || undefined
     const email = (body.email as string)?.trim() || undefined
     const password = body.password as string
-    const role = body.role === 'teacher' ? UserRole.TEACHER : UserRole.STUDENT
+    const role: UserRole = body.role === 'teacher' ? 'TEACHER' : 'STUDENT'
 
     if (!fullName || !phone || !password) {
       return NextResponse.json(
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
-    const status = role === UserRole.TEACHER ? AccountStatus.PENDING : AccountStatus.ACTIVE
+    const status: AccountStatus = role === 'TEACHER' ? 'PENDING' : 'ACTIVE'
     await prisma.user.create({
       data: {
         fullName,

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole } from '@prisma/client'
+import type { UserRole } from '@/lib/schema-enums'
 
 export async function PATCH(
   req: Request,
@@ -22,7 +22,7 @@ export async function PATCH(
     const whatsapp = (body.whatsapp as string)?.trim().replace(/\s/g, '') || undefined
     const email = (body.email as string)?.trim() || undefined
     const roleInput = (body.role as string)?.toLowerCase()
-    const role = roleInput === 'super_admin' ? UserRole.SUPER_ADMIN : UserRole.ADMIN
+    const role: UserRole = roleInput === 'super_admin' ? 'SUPER_ADMIN' : 'ADMIN'
 
     if (!fullName || !phone) {
       return NextResponse.json(
@@ -41,7 +41,7 @@ export async function PATCH(
     if (!existing) {
       return NextResponse.json({ error: 'المسؤول غير موجود' }, { status: 404 })
     }
-    if (existing.role !== UserRole.ADMIN && existing.role !== UserRole.SUPER_ADMIN) {
+    if (existing.role !== 'ADMIN' && existing.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'المستخدم ليس مسؤولاً' }, { status: 400 })
     }
     const duplicate = await prisma.user.findFirst({

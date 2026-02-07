@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { CourseStatus } from '@prisma/client'
 
 /**
  * Public API: get a single published course by ID (no auth).
@@ -16,7 +15,7 @@ export async function GET(
   }
   try {
     const course = await prisma.course.findFirst({
-      where: { id, status: CourseStatus.PUBLISHED },
+      where: { id, status: 'PUBLISHED' },
       include: {
         teacher: { select: { id: true, fullName: true } },
         sections: {

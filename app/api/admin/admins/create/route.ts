@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
-import { UserRole, AccountStatus } from '@prisma/client'
+import type { UserRole } from '@/lib/schema-enums'
 
 export async function POST(req: Request) {
   const session = await getAdminSession()
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         email: email || null,
         passwordHash,
         role: newUserRole,
-        status: AccountStatus.ACTIVE,
+        status: 'ACTIVE',
       },
     })
     return NextResponse.json({ success: true })
