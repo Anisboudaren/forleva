@@ -74,7 +74,7 @@ export default function SalesPage() {
           variant="green"
           icon={DollarSign}
           title="إجمالي الإيرادات"
-          value={`${totalRevenue.toLocaleString()} ر.س`}
+          value={`${totalRevenue.toLocaleString()} د.ج`}
           description="إيرادات إجمالية"
         />
         <DashboardCard
@@ -82,13 +82,13 @@ export default function SalesPage() {
           icon={Calendar}
           title="مبيعات اليوم"
           value={todaySales}
-          description={`${todayRevenue.toLocaleString()} ر.س`}
+          description={`${todayRevenue.toLocaleString()} د.ج`}
         />
         <DashboardCard
           variant="purple"
           icon={TrendingUp}
           title="متوسط المبيعات"
-          value={`${Math.round(totalRevenue / totalSales)} ر.س`}
+          value={`${Math.round(totalRevenue / totalSales)} د.ج`}
           description="لكل مبيعة"
         />
       </div>
@@ -115,7 +115,7 @@ export default function SalesPage() {
                 <tr key={sale.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-sm text-gray-900">{sale.courseName}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{sale.studentName}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{sale.amount} ر.س</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{sale.amount} د.ج</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{sale.date}</td>
                   <td className="py-3 px-4">
                     <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">

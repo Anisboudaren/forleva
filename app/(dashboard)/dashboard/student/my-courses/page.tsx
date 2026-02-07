@@ -1,88 +1,88 @@
 import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
-import { BookOpen, Clock, Play, CheckCircle2, Filter, Search } from "lucide-react"
+import { BookOpen, Clock, Play, CheckCircle2, Search } from "lucide-react"
 import Image from "next/image"
 import { GradientText } from "@/components/text/gradient-text"
 import Link from "next/link"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
+import { formatRelativeAr } from "@/lib/format-date"
+import { OrderStatus, type Prisma } from "@prisma/client"
 
-export default function MyCoursesPage() {
-  const courses = [
-    {
-      id: 1,
-      name: "مقدمة في البرمجة",
-      instructor: "ياسين بومدين",
-      progress: 65,
-      totalLessons: 24,
-      completedLessons: 16,
-      lastAccessed: "منذ ساعتين",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-      status: "in-progress",
-      category: "برمجة",
-    },
-    {
-      id: 2,
-      name: "تصميم واجهات المستخدم",
-      instructor: "ليلى زروقي",
-      progress: 40,
-      totalLessons: 30,
-      completedLessons: 12,
-      lastAccessed: "أمس",
-      image: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=300&fit=crop",
-      status: "in-progress",
-      category: "تصميم",
-    },
-    {
-      id: 3,
-      name: "قواعد البيانات",
-      instructor: "أميرة بن عودة",
-      progress: 100,
-      totalLessons: 20,
-      completedLessons: 20,
-      lastAccessed: "منذ 3 أيام",
-      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-      status: "completed",
-      category: "برمجة",
-    },
-    {
-      id: 4,
-      name: "React للمحترفين",
-      instructor: "ياسين بومدين",
-      progress: 25,
-      totalLessons: 32,
-      completedLessons: 8,
-      lastAccessed: "منذ أسبوع",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-      status: "in-progress",
-      category: "برمجة",
-    },
-    {
-      id: 5,
-      name: "التسويق الرقمي",
-      instructor: "عمر بلقاسم",
-      progress: 100,
-      totalLessons: 18,
-      completedLessons: 18,
-      lastAccessed: "منذ أسبوعين",
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop",
-      status: "completed",
-      category: "تسويق",
-    },
-    {
-      id: 6,
-      name: "Node.js للمحترفين",
-      instructor: "أميرة بن عودة",
-      progress: 0,
-      totalLessons: 28,
-      completedLessons: 0,
-      lastAccessed: "لم تبدأ بعد",
-      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-      status: "not-started",
-      category: "برمجة",
-    },
-  ]
+type OrderWithCourse = Prisma.OrderGetPayload<{
+  include: { course: { include: { teacher: true } } }
+}>
 
-  const inProgressCourses = courses.filter(c => c.status === "in-progress")
-  const completedCourses = courses.filter(c => c.status === "completed")
-  const notStartedCourses = courses.filter(c => c.status === "not-started")
+type MyCourse = {
+  id: string
+  name: string
+  instructor: string
+  progress: number
+  totalLessons: number
+  completedLessons: number
+  lastAccessed: string
+  image: string
+  status: "in-progress" | "completed" | "not-started"
+  category: string
+  orderStatus: OrderStatus
+}
+
+export default async function MyCoursesPage() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "STUDENT") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للطلاب فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب طالب لعرض دوراتك.</p>
+      </div>
+    )
+  }
+
+  const orders: OrderWithCourse[] = await prisma.order.findMany({
+    where: {
+      userId: session.userId,
+      status: {
+        in: [OrderStatus.PENDING, OrderStatus.CONFIRMED],
+      },
+    },
+    include: {
+      course: {
+        include: {
+          teacher: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const courses: MyCourse[] = orders
+    .filter((order) => order.course)
+    .map((order) => {
+      const course = order.course
+      const instructorName = course.teacher?.fullName || "مدرب الدورة"
+
+      return {
+        id: course.id,
+        name: course.title,
+        instructor: instructorName,
+        // TODO: استبدال القيم الثابتة بتقدم فعلي عندما يتوفر
+        progress: 0,
+        totalLessons: 0,
+        completedLessons: 0,
+        lastAccessed: formatRelativeAr(order.createdAt),
+        image:
+          course.imageUrl ||
+          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        // حالياً جميع الدورات تعتبر "لم تبدأ بعد" حتى يتم بناء نظام التقدم
+        status: "not-started",
+        category: course.category,
+        orderStatus: order.status,
+      }
+    })
+
+  const inProgressCourses = courses.filter((c) => c.status === "in-progress")
+  const completedCourses = courses.filter((c) => c.status === "completed")
+  const notStartedCourses = courses.filter((c) => c.status === "not-started")
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -255,8 +255,13 @@ export default function MyCoursesPage() {
             {notStartedCourses.map((course) => (
               <Link
                 key={course.id}
-                href={`/courses/${course.id}`}
-                className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300"
+                href={course.orderStatus === OrderStatus.PENDING ? "#" : `/courses/${course.id}`}
+                aria-disabled={course.orderStatus === OrderStatus.PENDING}
+                className={`group relative overflow-hidden border border-gray-200 rounded-xl transition-all duration-300 ${
+                  course.orderStatus === OrderStatus.PENDING
+                    ? "cursor-default opacity-70"
+                    : "hover:shadow-lg"
+                }`}
               >
                 <div className="flex flex-col">
                   <div className="relative w-full h-40 overflow-hidden">
@@ -291,9 +296,17 @@ export default function MyCoursesPage() {
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <BookOpen className="h-3 w-3" />
-                        {course.totalLessons} درس
+                        {course.totalLessons > 0 ? `${course.totalLessons} درس` : "دورة جاهزة"}
                       </span>
-                      <span className="text-yellow-600 font-medium">ابدأ الآن</span>
+                      <span
+                        className={
+                          course.orderStatus === OrderStatus.PENDING
+                            ? "text-gray-500 font-medium"
+                            : "text-yellow-600 font-medium"
+                        }
+                      >
+                        {course.orderStatus === OrderStatus.PENDING ? "بانتظار تأكيد الطلب" : "ابدأ الآن"}
+                      </span>
                     </div>
                   </div>
                 </div>

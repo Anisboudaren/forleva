@@ -7,15 +7,18 @@ import { Footer } from '@/components/footer/Footer'
 export function ClientLayout ({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isDashboard = pathname?.startsWith('/dashboard')
+  const isAdmin = pathname?.startsWith('/admin')
   const isLogin = pathname === '/login'
   const isSignup = pathname === '/signup'
+  const isForgotPassword = pathname === '/forgot-password'
   const isHome = pathname === '/'
+  const hideChrome = isDashboard || isAdmin || isLogin || isSignup || isForgotPassword || isHome
 
   return (
     <>
-      {!isDashboard && !isLogin && !isSignup && !isHome && <Header3 />}
+      {!hideChrome && <Header3 />}
       {children}
-      {!isDashboard && !isLogin && !isSignup && !isHome && <Footer />}
+      {!hideChrome && <Footer />}
     </>
   )
 }

@@ -1,6 +1,7 @@
 import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { Settings, User, Bell, Lock, Globe, Palette } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
+import { PasswordInput } from "@/components/ui/password-input"
 
 export default function SettingsPage() {
   return (
@@ -129,23 +130,20 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور الحالية</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            <PasswordInput
+              className="w-full px-4 py-2.5 h-auto border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور الجديدة</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            <PasswordInput
+              className="w-full px-4 py-2.5 h-auto border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">تأكيد كلمة المرور</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            <PasswordInput
+              className="w-full px-4 py-2.5 h-auto border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
             />
           </div>
           <div className="flex justify-end pt-2">

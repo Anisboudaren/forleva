@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'i.pravatar.cc'
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com'
+      },
+      {
+        protocol: 'https',
+        hostname: 'bhaavyakapur.com'
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com'
       }
     ]
   }

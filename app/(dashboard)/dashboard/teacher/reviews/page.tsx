@@ -1,56 +1,35 @@
+'use client'
+
+import { useState } from "react"
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
 import { Star, MessageSquare, TrendingUp, ThumbsUp, Search } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
 import Image from "next/image"
+import { Button } from "@/components/ui/button"
+
+type Review = {
+  id: number
+  courseName: string
+  studentName: string
+  rating: number
+  comment: string
+  date: string
+  helpful: number
+  avatar: string
+}
 
 export default function ReviewsPage() {
-  const reviews = [
-    {
-      id: 1,
-      courseName: "مقدمة في البرمجة",
-      studentName: "أحمد محمد",
-      rating: 5,
-      comment: "دورة رائعة ومفيدة جداً، المحتوى واضح ومنظم بشكل ممتاز. أنصح بها بشدة!",
-      date: "10 يناير 2024",
-      helpful: 12,
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    },
-    {
-      id: 2,
-      courseName: "تصميم واجهات المستخدم",
-      studentName: "فاطمة علي",
-      rating: 4,
-      comment: "محتوى جيد ولكن يحتاج إلى المزيد من الأمثلة العملية.",
-      date: "8 يناير 2024",
-      helpful: 8,
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    },
-    {
-      id: 3,
-      courseName: "قواعد البيانات المتقدمة",
-      studentName: "خالد حسن",
-      rating: 5,
-      comment: "أفضل دورة في قواعد البيانات! شرح مفصل وواضح.",
-      date: "5 يناير 2024",
-      helpful: 15,
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-    },
-    {
-      id: 4,
-      courseName: "مقدمة في البرمجة",
-      studentName: "سارة أحمد",
-      rating: 5,
-      comment: "شكراً لك على هذه الدورة الممتازة. استفدت كثيراً منها.",
-      date: "3 يناير 2024",
-      helpful: 20,
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    },
-  ]
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [comment, setComment] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const totalReviews = reviews.length
-  const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+  const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0
   const fiveStarReviews = reviews.filter(r => r.rating === 5).length
   const totalHelpful = reviews.reduce((sum, r) => sum + r.helpful, 0)
+  const satisfactionPercent = totalReviews > 0 ? Math.round((fiveStarReviews / totalReviews) * 100) : 0
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -77,7 +56,7 @@ export default function ReviewsPage() {
           variant="yellow"
           icon={Star}
           title="متوسط التقييم"
-          value={avgRating.toFixed(1)}
+          value={totalReviews > 0 ? avgRating.toFixed(1) : "—"}
           description={`${fiveStarReviews} تقييم 5 نجوم`}
         />
         <DashboardCard
@@ -91,7 +70,7 @@ export default function ReviewsPage() {
           variant="purple"
           icon={TrendingUp}
           title="نسبة الرضا"
-          value="96%"
+          value={totalReviews > 0 ? `${satisfactionPercent}%` : "—"}
           description="طلاب راضون"
         />
       </div>
@@ -113,7 +92,90 @@ export default function ReviewsPage() {
         icon={Star}
       >
         <div className="space-y-4">
-          {reviews.map((review) => (
+          {reviews.length === 0 ? (
+            <div className="flex flex-col max-w-xl mx-auto py-8 px-4">
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+                  <MessageSquare className="w-7 h-7 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">لا توجد تقييمات بعد</h3>
+                <p className="text-sm text-gray-600">أضف تقييماً أو تعليقاً</p>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (rating === 0 || !comment.trim()) return
+                  setIsSubmitting(true)
+                  setReviews((prev) => [
+                    ...prev,
+                    {
+                      id: Date.now(),
+                      courseName: "دورة",
+                      studentName: "تقييم جديد",
+                      rating,
+                      comment: comment.trim(),
+                      date: new Date().toLocaleDateString("ar-DZ", { day: "numeric", month: "long", year: "numeric" }),
+                      helpful: 0,
+                      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+                    },
+                  ])
+                  setRating(0)
+                  setHoverRating(0)
+                  setComment("")
+                  setIsSubmitting(false)
+                }}
+                className="border border-gray-200 rounded-xl p-5 bg-gray-50/50 space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">التقييم (نجوم)</label>
+                  <div className="flex gap-1" dir="ltr">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRating(value)}
+                        onMouseEnter={() => setHoverRating(value)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        className="p-1 rounded focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1"
+                        aria-label={`${value} نجوم`}
+                      >
+                        <Star
+                          className={`h-8 w-8 transition-colors ${
+                            value <= (hoverRating || rating)
+                              ? "fill-amber-500 text-amber-500"
+                              : "fill-gray-200 text-gray-200"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="review-comment" className="block text-sm font-medium text-gray-700 mb-2">
+                    التعليق أو المراجعة
+                  </label>
+                  <textarea
+                    id="review-comment"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="اكتب تعليقك أو مراجعتك هنا..."
+                    rows={4}
+                    className="w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y min-h-[100px]"
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={rating === 0 || !comment.trim() || isSubmitting}
+                  className="w-full rounded-full font-semibold"
+                  style={{ background: "linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)" }}
+                >
+                  {isSubmitting ? "جاري الإرسال..." : "إرسال التقييم"}
+                </Button>
+              </form>
+            </div>
+          ) : (
+          reviews.map((review) => (
             <div
               key={review.id}
               className="p-4 border border-gray-200 rounded-xl hover:shadow-md transition-all duration-300"
@@ -157,7 +219,7 @@ export default function ReviewsPage() {
                 </div>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </DashboardContentCard>
     </div>

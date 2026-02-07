@@ -71,7 +71,7 @@ export default function TeacherDashboard() {
           variant="purple"
           icon={TrendingUp}
           title="إجمالي الإيرادات"
-          value={`${stats.totalRevenue.toLocaleString()} ر.س`}
+          value={`${stats.totalRevenue.toLocaleString()} د.ج`}
           description={
             <span className="inline-flex items-center gap-1">
               <TrendingUp className="h-3 w-3" />

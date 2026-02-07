@@ -47,7 +47,7 @@ export default function ReportsPage() {
           variant="green"
           icon={DollarSign}
           title="إجمالي الإيرادات"
-          value="1,199,400 ر.س"
+          value="1,199,400 د.ج"
           description="هذا الشهر"
         />
         <DashboardCard
@@ -87,7 +87,7 @@ export default function ReportsPage() {
                 <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-sm font-semibold text-gray-900">{data.month}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{data.sales.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{data.revenue.toLocaleString()} ر.س</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{data.revenue.toLocaleString()} د.ج</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{data.students}</td>
                 </tr>
               ))}
@@ -118,7 +118,7 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div className="text-left">
-                <p className="text-lg font-bold text-gray-900">{course.revenue.toLocaleString()} ر.س</p>
+                <p className="text-lg font-bold text-gray-900">{course.revenue.toLocaleString()} د.ج</p>
                 <p className="text-xs text-gray-600">إيرادات</p>
               </div>
             </div>

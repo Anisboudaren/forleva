@@ -117,7 +117,7 @@ export function Certificates3 () {
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           >
-            <div className="relative w-full max-w-md mx-auto lg:max-w-lg aspect-[3/4]">
+            <div className="relative w-full max-w-md mx-auto lg:max-w-lg aspect-[3/4] bg-transparent">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={selectedCertificate}
@@ -128,14 +128,14 @@ export function Certificates3 () {
                     duration: 0.4,
                     ease: [0.4, 0, 0.2, 1]
                   }}
-                  className="absolute inset-0"
+                  className="absolute inset-0 bg-transparent"
                 >
                   <Image
                     src={selectedCert.image}
                     alt={selectedCert.title}
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"
-                    className="object-contain rounded-lg shadow-2xl"
+                    className="object-contain rounded-lg drop-shadow-2xl bg-transparent"
                     priority={selectedCertificate === 2}
                   />
                 </motion.div>

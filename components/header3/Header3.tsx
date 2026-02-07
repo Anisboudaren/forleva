@@ -8,17 +8,27 @@ import { motion, AnimatePresence } from 'motion/react'
 import { User, Search, X } from 'lucide-react'
 import { courses } from '@/components/popular-courses/PopularCourses'
 
+type UserSession = { userId: string; role: 'STUDENT' | 'TEACHER'; email: string | null }
+
 export function Header3 () {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [activeSection, setActiveSection] = useState('hero')
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [session, setSession] = useState<UserSession | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const isHomePage = pathname === '/'
   const isCertificatesPage = pathname === '/certificates'
   const isHowItWorksPage = pathname === '/how-it-works'
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then((res) => res.json())
+      .then((data) => setSession(data.user ?? null))
+      .catch(() => setSession(null))
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -176,17 +186,31 @@ export function Header3 () {
 
           {/* CTA Button */}
           <div className="hidden lg:flex lg:items-center lg:ml-auto">
-            <Link
-              href="/login"
-              className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
-              style={{
-                background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
-              }}
-            >
-              <User className="w-4 h-4 relative z-10" />
-              <span className="relative z-10">دخول / تسجيل</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
-            </Link>
+            {session ? (
+              <Link
+                href="/dashboard"
+                className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
+                style={{
+                  background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                }}
+              >
+                <User className="w-4 h-4 relative z-10" />
+                <span className="relative z-10">حسابي</span>
+                <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
+                style={{
+                  background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                }}
+              >
+                <User className="w-4 h-4 relative z-10" />
+                <span className="relative z-10">دخول / تسجيل</span>
+                <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -377,14 +401,14 @@ export function Header3 () {
                 </Link>
 
                 <Link
-                  href="/login"
+                  href={session ? '/dashboard' : '/login'}
                   className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-full transition-all duration-200"
                   style={{
                     background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
                   }}
                 >
                   <User className="w-4 h-4" />
-                  دخول / تسجيل
+                  {session ? 'حسابي' : 'دخول / تسجيل'}
                 </Link>
               </motion.nav>
             </motion.div>

@@ -75,7 +75,7 @@ export function Testimonials3 () {
                 transition={{ duration: 0.4, delay: index * 0.05 }}
               >
                 <div className="relative group">
-                  <div className="relative w-64 sm:w-80 md:w-96 h-64 sm:h-80 md:h-96 rounded-xl overflow-hidden bg-gray-50 border-2 border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 hover:border-amber-300">
+                  <div className="relative w-64 sm:w-80 md:w-96 h-64 sm:h-80 md:h-96 rounded-xl overflow-hidden bg-white border-2 border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 hover:border-amber-300">
                     <Image
                       src={src}
                       alt={`رأي مشارك ${index + 1}`}

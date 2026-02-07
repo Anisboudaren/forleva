@@ -9,5 +9,124 @@ datasource db {
   provider = "postgresql"
 }
 
-// Schema will be provided later
-// For now, this is a placeholder to test the connection
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum AccountStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+  BLOCKED
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum ContentType {
+  VIDEO
+  QUIZ
+  EXTERNAL
+  PDF
+  SURVEY
+  TITLE
+  CERTIFICATE
+  EXERCISE
+  AUDIO
+  CHECKLIST
+  DOCUMENT
+  IMAGE
+}
+
+model User {
+  id              String        @id @default(cuid())
+  role            UserRole
+  status          AccountStatus @default(ACTIVE)
+  email           String?       @unique
+  phone           String?       @unique
+  passwordHash    String
+  fullName        String?
+  whatsapp        String?
+  termsAcceptedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  courses         Course[]
+  orders          Order[]
+}
+
+model Course {
+  id               String       @id @default(cuid())
+  teacherId        String
+  status           CourseStatus @default(DRAFT)
+  title            String
+  category         String
+  price            Int
+  imageUrl         String?
+  duration         String?
+  level            String?
+  language         String?
+  description      String?
+  learningOutcomes Json
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  teacher          User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  sections         CourseSection[]
+  orders           Order[]
+
+  @@index([teacherId])
+  @@index([status])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  userId     String
+  courseId   String
+  status     OrderStatus @default(PENDING)
+  amount     Int
+  adminNotes String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+}
+
+model CourseSection {
+  id        String             @id @default(cuid())
+  courseId  String
+  title     String
+  position  Int
+  course    Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  items     CourseSectionItem[]
+
+  @@index([courseId])
+}
+
+model CourseSectionItem {
+  id        String        @id @default(cuid())
+  sectionId String
+  type      ContentType
+  title     String
+  duration  String?
+  url       String?
+  position  Int
+  extraData Json?
+  section   CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
