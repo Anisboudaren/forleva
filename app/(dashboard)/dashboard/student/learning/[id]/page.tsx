@@ -1,9 +1,17 @@
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
+import type { Prisma } from "@prisma/client"
 import { GradientText } from "@/components/text/gradient-text"
 import { BookOpen, User, FileText } from "lucide-react"
 import LearningStudioClient from "@/components/student/learning-studio-client"
+
+type CourseWithSections = Prisma.CourseGetPayload<{
+  include: {
+    teacher: { select: { id: true; fullName: true } }
+    sections: { include: { items: true } }
+  }
+}>
 
 export default async function LearningStudioPage({
   params,
@@ -37,25 +45,27 @@ export default async function LearningStudioPage({
     redirect(`/courses/${id}`)
   }
 
-  const learningOutcomes = Array.isArray(course.learningOutcomes)
-    ? (course.learningOutcomes as string[])
+  const courseData = course as CourseWithSections
+
+  const learningOutcomes = Array.isArray(courseData.learningOutcomes)
+    ? (courseData.learningOutcomes as string[])
     : []
 
   const mappedCourse = {
-    id: course.id,
-    title: course.title,
-    category: course.category,
-    price: course.price,
-    imageUrl: course.imageUrl,
-    duration: course.duration,
-    level: course.level,
-    language: course.language,
-    description: course.description,
+    id: courseData.id,
+    title: courseData.title,
+    category: courseData.category,
+    price: courseData.price,
+    imageUrl: courseData.imageUrl,
+    duration: courseData.duration,
+    level: courseData.level,
+    language: courseData.language,
+    description: courseData.description,
     learningOutcomes,
-    teacher: course.teacher
-      ? { id: course.teacher.id, fullName: course.teacher.fullName ?? "مدرّس" }
+    teacher: courseData.teacher
+      ? { id: courseData.teacher.id, fullName: courseData.teacher.fullName ?? "مدرّس" }
       : null,
-    sections: course.sections.map((sec) => ({
+    sections: courseData.sections.map((sec) => ({
       id: sec.id,
       title: sec.title,
       position: sec.position,
@@ -80,18 +90,18 @@ export default async function LearningStudioPage({
         </p>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
           <GradientText
-            text={course.title}
+            text={courseData.title}
             gradient="linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)"
           />
         </h1>
         <p className="text-sm text-gray-600 flex items-center gap-3 mt-1">
           <span className="inline-flex items-center gap-1">
             <User className="h-3.5 w-3.5 text-gray-400" />
-            {course.teacher?.fullName ?? "مدرّس"}
+            {courseData.teacher?.fullName ?? "مدرّس"}
           </span>
           <span className="inline-flex items-center gap-1">
             <FileText className="h-3.5 w-3.5 text-gray-400" />
-            {course.category}
+            {courseData.category}
           </span>
         </p>
       </div>
