@@ -1,17 +1,26 @@
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
-import type { Prisma } from "@prisma/client"
 import { GradientText } from "@/components/text/gradient-text"
 import { BookOpen, User, FileText } from "lucide-react"
 import LearningStudioClient from "@/components/student/learning-studio-client"
 
-type CourseWithSections = Prisma.CourseGetPayload<{
-  include: {
-    teacher: { select: { id: true; fullName: true } }
-    sections: { include: { items: true } }
-  }
-}>
+type SectionItem = {
+  id: string
+  type: string
+  title: string
+  duration: string | null
+  url: string | null
+  position: number
+  extraData: unknown
+}
+
+type SectionWithItems = {
+  id: string
+  title: string
+  position: number
+  items: SectionItem[]
+}
 
 export default async function LearningStudioPage({
   params,
@@ -45,31 +54,31 @@ export default async function LearningStudioPage({
     redirect(`/courses/${id}`)
   }
 
-  const courseData = course as CourseWithSections
-
-  const learningOutcomes = Array.isArray(courseData.learningOutcomes)
-    ? (courseData.learningOutcomes as string[])
+  const learningOutcomes = Array.isArray(course.learningOutcomes)
+    ? (course.learningOutcomes as string[])
     : []
 
+  const sections = course.sections as SectionWithItems[]
+
   const mappedCourse = {
-    id: courseData.id,
-    title: courseData.title,
-    category: courseData.category,
-    price: courseData.price,
-    imageUrl: courseData.imageUrl,
-    duration: courseData.duration,
-    level: courseData.level,
-    language: courseData.language,
-    description: courseData.description,
+    id: course.id,
+    title: course.title,
+    category: course.category,
+    price: course.price,
+    imageUrl: course.imageUrl,
+    duration: course.duration,
+    level: course.level,
+    language: course.language,
+    description: course.description,
     learningOutcomes,
-    teacher: courseData.teacher
-      ? { id: courseData.teacher.id, fullName: courseData.teacher.fullName ?? "مدرّس" }
+    teacher: course.teacher
+      ? { id: course.teacher.id, fullName: course.teacher.fullName ?? "مدرّس" }
       : null,
-    sections: courseData.sections.map((sec) => ({
+    sections: sections.map((sec: SectionWithItems) => ({
       id: sec.id,
       title: sec.title,
       position: sec.position,
-      items: sec.items.map((item) => ({
+      items: sec.items.map((item: SectionItem) => ({
         id: item.id,
         type: item.type,
         title: item.title,
@@ -90,18 +99,18 @@ export default async function LearningStudioPage({
         </p>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
           <GradientText
-            text={courseData.title}
+            text={course.title}
             gradient="linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)"
           />
         </h1>
         <p className="text-sm text-gray-600 flex items-center gap-3 mt-1">
           <span className="inline-flex items-center gap-1">
             <User className="h-3.5 w-3.5 text-gray-400" />
-            {courseData.teacher?.fullName ?? "مدرّس"}
+            {course.teacher?.fullName ?? "مدرّس"}
           </span>
           <span className="inline-flex items-center gap-1">
             <FileText className="h-3.5 w-3.5 text-gray-400" />
-            {courseData.category}
+            {course.category}
           </span>
         </p>
       </div>
