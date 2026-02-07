@@ -214,44 +214,45 @@ export async function PATCH(
           : parseInt(String(body.price), 10) || 0
         : existing.price
 
+    const updateData = {
+      ...(statusUpdate !== undefined && { status: statusUpdate }),
+      title: body.title !== undefined ? String(body.title).trim() : existing.title,
+      category: body.category !== undefined ? String(body.category).trim() : existing.category,
+      price: priceNum,
+      imageUrl: body.imageUrl !== undefined ? (body.imageUrl ? String(body.imageUrl).trim() : null) : existing.imageUrl,
+      duration: body.duration !== undefined ? (body.duration ? String(body.duration).trim() : null) : existing.duration,
+      level: body.level !== undefined ? (body.level ? String(body.level).trim() : null) : existing.level,
+      language: body.language !== undefined ? (body.language ? String(body.language).trim() : null) : existing.language,
+      description: body.description !== undefined ? (body.description ? String(body.description).trim() : null) : existing.description,
+      learningOutcomes,
+      ...(sections
+        ? {
+            sections: {
+              create: sections.map((sec, pos) => ({
+                title: (sec.title && String(sec.title).trim()) || 'قسم',
+                position: pos,
+                items: {
+                  create: (sec.items || []).map((item, itemPos) => {
+                    const type = CONTENT_TYPE_MAP[String(item.type).toLowerCase()] ?? 'VIDEO'
+                    const extra = toExtraData(item as ApiSectionItem)
+                    return {
+                      type,
+                      title: (item.title && String(item.title).trim()) || 'عنصر',
+                      duration: item.duration && String(item.duration).trim() ? String(item.duration).trim() : null,
+                      url: item.url && String(item.url).trim() ? String(item.url).trim() : null,
+                      position: itemPos,
+                      extraData: extra ?? undefined,
+                    }
+                  }),
+                },
+              })),
+            },
+          }
+        : {}),
+    }
     await prisma.course.update({
       where: { id },
-      data: {
-        ...(statusUpdate !== undefined && { status: statusUpdate }),
-        title: body.title !== undefined ? String(body.title).trim() : existing.title,
-        category: body.category !== undefined ? String(body.category).trim() : existing.category,
-        price: priceNum,
-        imageUrl: body.imageUrl !== undefined ? (body.imageUrl ? String(body.imageUrl).trim() : null) : existing.imageUrl,
-        duration: body.duration !== undefined ? (body.duration ? String(body.duration).trim() : null) : existing.duration,
-        level: body.level !== undefined ? (body.level ? String(body.level).trim() : null) : existing.level,
-        language: body.language !== undefined ? (body.language ? String(body.language).trim() : null) : existing.language,
-        description: body.description !== undefined ? (body.description ? String(body.description).trim() : null) : existing.description,
-        learningOutcomes,
-        ...(sections
-          ? {
-              sections: {
-                create: sections.map((sec, pos) => ({
-                  title: (sec.title && String(sec.title).trim()) || 'قسم',
-                  position: pos,
-                  items: {
-                    create: (sec.items || []).map((item, itemPos) => {
-                      const type = CONTENT_TYPE_MAP[String(item.type).toLowerCase()] ?? 'VIDEO'
-                      const extra = toExtraData(item as ApiSectionItem)
-                      return {
-                        type,
-                        title: (item.title && String(item.title).trim()) || 'عنصر',
-                        duration: item.duration && String(item.duration).trim() ? String(item.duration).trim() : null,
-                        url: item.url && String(item.url).trim() ? String(item.url).trim() : null,
-                        position: itemPos,
-                        extraData: extra,
-                      }
-                    }),
-                  },
-                })),
-              },
-            }
-          : {}),
-      },
+      data: updateData as Parameters<typeof prisma.course.update>[0]['data'],
     })
 
     const updated = await prisma.course.findUnique({

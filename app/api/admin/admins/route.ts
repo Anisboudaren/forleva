@@ -11,7 +11,7 @@ export async function GET() {
   try {
     await prisma.$connect()
     const users = await prisma.user.findMany({
-      where: { role: { in: [UserRole.SUPER_ADMIN, UserRole.ADMIN] } },
+      where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] } },
       orderBy: { createdAt: 'desc' },
     })
     const list = users.map((u) => ({

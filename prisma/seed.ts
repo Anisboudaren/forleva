@@ -25,8 +25,8 @@ async function main() {
         data: {
           email,
           passwordHash,
-          role: UserRole.SUPER_ADMIN,
-          status: AccountStatus.ACTIVE,
+          role: 'SUPER_ADMIN',
+          status: 'ACTIVE',
           fullName: 'Super Admin',
         },
       })
@@ -92,7 +92,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'مكياج العيون للمبتدئين',
                   duration: '12:00',
                   url: 'https://www.youtube.com/watch?v=wwKv0UM6IwQ',
@@ -108,7 +108,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'أساسيات المكياج من الصفر',
                   duration: '15:30',
                   url: 'https://www.youtube.com/watch?v=xcyC_5rOIbs',
@@ -124,7 +124,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'البلاتو والكونتور للخدود والوجه',
                   duration: '18:00',
                   url: 'https://www.youtube.com/watch?v=n55z6Rk-NJU',
@@ -140,7 +140,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'تحديد وتلوين الشفاه',
                   duration: '08:00',
                   url: 'https://www.youtube.com/watch?v=wwKv0UM6IwQ',
@@ -161,7 +161,7 @@ async function main() {
                   position: 0,
                 },
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'دليل شراء فرش المكياج',
                   duration: '10:00',
                   url: 'https://www.youtube.com/watch?v=xcyC_5rOIbs',
@@ -177,7 +177,7 @@ async function main() {
             items: {
               create: [
                 {
-                  type: ContentType.VIDEO,
+                  type: 'VIDEO',
                   title: 'نصائح لإطالة بقاء المكياج',
                   duration: '07:00',
                   url: 'https://www.youtube.com/watch?v=n55z6Rk-NJU',

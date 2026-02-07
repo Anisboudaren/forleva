@@ -24,19 +24,18 @@ export async function GET(req: NextRequest) {
         ? (statusParam as OrderStatus)
         : undefined
 
-    const where: Parameters<typeof prisma.order.findMany>[0]['where'] = {}
-    if (statusFilter) where.status = statusFilter
-    if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { user: { fullName: { contains: search, mode: 'insensitive' } } },
-        { user: { phone: { contains: search, mode: 'insensitive' } } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
-
     const orders = await prisma.order.findMany({
-      where,
+      where: {
+        ...(statusFilter && { status: statusFilter }),
+        ...(search && {
+          OR: [
+            { id: { contains: search, mode: 'insensitive' } },
+            { user: { fullName: { contains: search, mode: 'insensitive' } } },
+            { user: { phone: { contains: search, mode: 'insensitive' } } },
+            { user: { email: { contains: search, mode: 'insensitive' } } },
+          ],
+        }),
+      },
       include: { user: true, course: true },
       orderBy: { createdAt: 'desc' },
     })

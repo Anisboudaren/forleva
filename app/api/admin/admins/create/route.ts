@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const email = (body.email as string)?.trim() || undefined
     const password = body.password as string
     const roleInput = (body.role as string)?.toUpperCase()
-    const newUserRole = roleInput === 'SUPER_ADMIN' ? UserRole.SUPER_ADMIN : UserRole.ADMIN
+    const newUserRole: UserRole = roleInput === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN'
 
     if (!fullName || !phone || !password) {
       return NextResponse.json(

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const email = (body.email as string)?.trim() || undefined
     const password = body.password as string
     const roleInput = (body.role as string)?.toLowerCase()
-    const role = roleInput === 'teacher' ? UserRole.TEACHER : UserRole.STUDENT
+    const role: UserRole = roleInput === 'teacher' ? 'TEACHER' : 'STUDENT'
 
     if (!fullName || !phone || !password) {
       return NextResponse.json(

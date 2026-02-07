@@ -144,40 +144,41 @@ export async function POST(request: NextRequest) {
     const statusEnum: CourseStatus =
       (status === 'PUBLISHED' || status === 'ARCHIVED' ? status : 'DRAFT') as CourseStatus
 
-    const course = await prisma.course.create({
-      data: {
-        teacherId: session.userId,
-        status: statusEnum,
-        title: title.trim(),
-        category: (category && String(category).trim()) || 'أخرى',
-        price: isNaN(priceNum) ? 0 : priceNum,
-        imageUrl: imageUrl && String(imageUrl).trim() ? String(imageUrl).trim() : null,
-        duration: duration && String(duration).trim() ? String(duration).trim() : null,
-        level: level && String(level).trim() ? String(level).trim() : null,
-        language: language && String(language).trim() ? String(language).trim() : null,
-        description: description && String(description).trim() ? String(description).trim() : null,
-        learningOutcomes: outcomes,
-        sections: {
-          create: (sections as ApiSection[]).map((sec, pos) => ({
-            title: (sec.title && String(sec.title).trim()) || 'قسم',
-            position: pos,
-            items: {
-              create: (sec.items || []).map((item, itemPos) => {
-                const type = CONTENT_TYPE_MAP[String(item.type).toLowerCase()] ?? 'VIDEO'
-                const extra = toExtraData(item as ApiSectionItem)
-                return {
-                  type,
-                  title: (item.title && String(item.title).trim()) || 'عنصر',
-                  duration: item.duration && String(item.duration).trim() ? String(item.duration).trim() : null,
-                  url: item.url && String(item.url).trim() ? String(item.url).trim() : null,
-                  position: itemPos,
-                  extraData: extra,
-                }
-              }),
-            },
-          })),
-        },
+    const createData = {
+      teacherId: session.userId,
+      status: statusEnum,
+      title: title.trim(),
+      category: (category && String(category).trim()) || 'أخرى',
+      price: isNaN(priceNum) ? 0 : priceNum,
+      imageUrl: imageUrl && String(imageUrl).trim() ? String(imageUrl).trim() : null,
+      duration: duration && String(duration).trim() ? String(duration).trim() : null,
+      level: level && String(level).trim() ? String(level).trim() : null,
+      language: language && String(language).trim() ? String(language).trim() : null,
+      description: description && String(description).trim() ? String(description).trim() : null,
+      learningOutcomes: outcomes,
+      sections: {
+        create: (sections as ApiSection[]).map((sec, pos) => ({
+          title: (sec.title && String(sec.title).trim()) || 'قسم',
+          position: pos,
+          items: {
+            create: (sec.items || []).map((item, itemPos) => {
+              const type = CONTENT_TYPE_MAP[String(item.type).toLowerCase()] ?? 'VIDEO'
+              const extra = toExtraData(item as ApiSectionItem)
+              return {
+                type,
+                title: (item.title && String(item.title).trim()) || 'عنصر',
+                duration: item.duration && String(item.duration).trim() ? String(item.duration).trim() : null,
+                url: item.url && String(item.url).trim() ? String(item.url).trim() : null,
+                position: itemPos,
+                extraData: extra ?? undefined,
+              }
+            }),
+          },
+        })),
       },
+    }
+    const course = await prisma.course.create({
+      data: createData as Parameters<typeof prisma.course.create>[0]['data'],
       include: {
         sections: { include: { items: true } },
       },
