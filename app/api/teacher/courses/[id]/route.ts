@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
-import type { CourseStatus, ContentType } from '@/lib/schema-enums'
+import type { ContentType } from '@/lib/schema-enums'
+
+type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
 const CONTENT_TYPE_MAP: Record<string, ContentType> = {
   video: 'VIDEO',
@@ -132,11 +134,12 @@ export async function PATCH(
     }
 
     const body = await request.json() as {
-      status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+      status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'PENDING_REVIEW'
       title?: string
       category?: string
       price?: string | number
       imageUrl?: string
+      videoUrl?: string
       duration?: string
       level?: string
       language?: string
@@ -149,8 +152,15 @@ export async function PATCH(
       body.status !== undefined &&
       Object.keys(body).every((k) => k === 'status')
     if (statusOnly) {
+      // Teachers cannot set PUBLISHED directly; map to PENDING_REVIEW for admin approval.
       const statusEnum: CourseStatus =
-        body.status === 'PUBLISHED' || body.status === 'ARCHIVED' ? body.status : 'DRAFT'
+        body.status === 'PUBLISHED'
+          ? 'PENDING_REVIEW'
+          : body.status === 'ARCHIVED'
+            ? 'ARCHIVED'
+            : body.status === 'PENDING_REVIEW'
+              ? 'PENDING_REVIEW'
+              : 'DRAFT'
       const updated = await prisma.course.update({
         where: { id },
         data: { status: statusEnum },
@@ -175,6 +185,7 @@ export async function PATCH(
             price: typeof body.price === 'number' ? body.price : parseInt(String(body.price), 10) || 0,
           }),
           ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null }),
+          ...(body.videoUrl !== undefined && { videoUrl: body.videoUrl ? String(body.videoUrl).trim() : null }),
           ...(body.duration !== undefined && { duration: body.duration ? String(body.duration).trim() : null }),
           ...(body.level !== undefined && { level: body.level ? String(body.level).trim() : null }),
           ...(body.language !== undefined && { language: body.language ? String(body.language).trim() : null }),
@@ -200,12 +211,17 @@ export async function PATCH(
       ? body.learningOutcomes.filter((o): o is string => typeof o === 'string')
       : (existing.learningOutcomes as string[])
 
+    // Teachers cannot set PUBLISHED directly; map to PENDING_REVIEW for admin approval.
     const statusUpdate: CourseStatus | undefined =
-      body.status === 'PUBLISHED' || body.status === 'ARCHIVED'
-        ? body.status
-        : body.status !== undefined
-          ? 'DRAFT'
-          : undefined
+      body.status === 'PUBLISHED'
+        ? 'PENDING_REVIEW'
+        : body.status === 'ARCHIVED'
+          ? 'ARCHIVED'
+          : body.status === 'PENDING_REVIEW'
+            ? 'PENDING_REVIEW'
+            : body.status !== undefined
+              ? 'DRAFT'
+              : undefined
 
     const priceNum =
       body.price !== undefined
@@ -220,6 +236,7 @@ export async function PATCH(
       category: body.category !== undefined ? String(body.category).trim() : existing.category,
       price: priceNum,
       imageUrl: body.imageUrl !== undefined ? (body.imageUrl ? String(body.imageUrl).trim() : null) : existing.imageUrl,
+      videoUrl: body.videoUrl !== undefined ? (body.videoUrl ? String(body.videoUrl).trim() : null) : existing.videoUrl,
       duration: body.duration !== undefined ? (body.duration ? String(body.duration).trim() : null) : existing.duration,
       level: body.level !== undefined ? (body.level ? String(body.level).trim() : null) : existing.level,
       language: body.language !== undefined ? (body.language ? String(body.language).trim() : null) : existing.language,

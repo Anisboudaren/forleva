@@ -1,6 +1,6 @@
 import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { BookOpen, Clock, Play, CheckCircle2, Search } from "lucide-react"
-import Image from "next/image"
+import { SafeCourseImage } from "@/components/safe-course-image"
 import { GradientText } from "@/components/text/gradient-text"
 import Link from "next/link"
 import { prisma } from "@/lib/db"
@@ -144,7 +144,7 @@ export default async function MyCoursesPage() {
               >
                 <div className="flex flex-col">
                   <div className="relative w-full h-40 overflow-hidden">
-                    <Image
+                    <SafeCourseImage
                       src={course.image}
                       alt={course.name}
                       fill
@@ -206,7 +206,7 @@ export default async function MyCoursesPage() {
               >
                 <div className="flex flex-col">
                   <div className="relative w-full h-40 overflow-hidden">
-                    <Image
+                    <SafeCourseImage
                       src={course.image}
                       alt={course.name}
                       fill
@@ -274,7 +274,7 @@ export default async function MyCoursesPage() {
               >
                 <div className="flex flex-col">
                   <div className="relative w-full h-40 overflow-hidden">
-                    <Image
+                    <SafeCourseImage
                       src={course.image}
                       alt={course.name}
                       fill

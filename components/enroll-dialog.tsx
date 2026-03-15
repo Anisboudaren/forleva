@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, User, Loader2 } from 'lucide-react'
+import { CheckCircle2, User, Loader2, LogOut } from 'lucide-react'
 
 type Session = { userId: string; role: string; email: string | null }
 
@@ -46,7 +47,7 @@ function addEnrolledCourseId(courseId: string): void {
   localStorage.setItem(ENROLLED_COURSES_KEY, JSON.stringify([...ids, courseId]))
 }
 
-type Step = 'loading' | 'login_required' | 'confirm' | 'success'
+type Step = 'loading' | 'login_required' | 'student_required' | 'confirm' | 'success'
 
 type EnrollDialogProps = {
   open: boolean
@@ -56,10 +57,12 @@ type EnrollDialogProps = {
 }
 
 export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: EnrollDialogProps) {
+  const router = useRouter()
   const [step, setStep] = useState<Step>('loading')
   const [session, setSession] = useState<Session | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -71,13 +74,27 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
       .then((data) => {
         const user = data.user ?? null
         setSession(user)
-        setStep(user ? 'confirm' : 'login_required')
+        if (!user) setStep('login_required')
+        else if (user.role !== 'STUDENT') setStep('student_required')
+        else setStep('confirm')
       })
       .catch(() => {
         setSession(null)
         setStep('login_required')
       })
   }, [open])
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      handleClose(false)
+      const redirect = course ? `/login?redirect=/courses/${course.id}` : '/login'
+      router.push(redirect)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   const handleConfirmEnroll = async () => {
     if (!course) return
@@ -151,6 +168,48 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
                 <Link href={course ? `/login?redirect=/courses/${course.id}` : '/login'}>
                   تسجيل الدخول
                 </Link>
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'student_required' && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <LogOut className="w-5 h-5 text-amber-600" />
+                تسجيل الخروج مطلوب
+              </DialogTitle>
+              <DialogDescription>
+                أنت مسجّل حالياً بحساب معلم أو مسؤول. للاشتراك في الدورة يجب تسجيل الخروج من الحساب الحالي ثم تسجيل الدخول بحساب طالب.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex flex-row gap-3 sm:justify-start">
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => handleClose(false)}
+                disabled={isLoggingOut}
+              >
+                إلغاء
+              </Button>
+              <Button
+                className="rounded-full"
+                style={{ background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                    جاري تسجيل الخروج...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 ml-2" />
+                    تسجيل الخروج
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </>

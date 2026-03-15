@@ -25,6 +25,7 @@ enum AccountStatus {
 
 enum CourseStatus {
   DRAFT
+  PENDING_REVIEW
   PUBLISHED
   ARCHIVED
 }
@@ -64,6 +65,7 @@ model User {
   updatedAt       DateTime      @updatedAt
   courses         Course[]
   orders          Order[]
+  reviews        Review[]
 }
 
 model Course {
@@ -74,6 +76,8 @@ model Course {
   category         String
   price            Int
   imageUrl         String?
+  /// Main course video URL (Vimeo)
+  videoUrl         String?
   duration         String?
   level            String?
   language         String?
@@ -84,6 +88,7 @@ model Course {
   teacher          User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   sections         CourseSection[]
   orders           Order[]
+  reviews         Review[]
 
   @@index([teacherId])
   @@index([status])
@@ -129,4 +134,21 @@ model CourseSectionItem {
   section   CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@index([sectionId])
+}
+
+model Review {
+  id                   String    @id @default(cuid())
+  courseId             String
+  userId               String
+  rating               Int
+  comment              String?
+  createdAt            DateTime  @default(now())
+  deletionRequestedAt  DateTime?
+  deletionRequestedBy  String?
+  course               Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@index([userId])
 }

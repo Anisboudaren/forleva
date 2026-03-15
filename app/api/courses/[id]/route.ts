@@ -39,6 +39,7 @@ export async function GET(
       category: course.category,
       price: course.price,
       imageUrl: course.imageUrl,
+      videoUrl: course.videoUrl ?? undefined,
       duration: course.duration,
       level: course.level,
       language: course.language,

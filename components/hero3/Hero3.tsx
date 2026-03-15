@@ -1,11 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
 import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { Sparkles, Rocket, Users, BookOpen, User } from 'lucide-react'
+import { Sparkles, Rocket, Users, BookOpen } from 'lucide-react'
 
 export function Hero3 () {
   const [isLoaded, setIsLoaded] = useState(false)
@@ -150,32 +149,19 @@ export function Hero3 () {
             </motion.div>
           </motion.div>
 
-          {/* Image Section - Left side on desktop (RTL) */}
+          {/* Video Section - Left side on desktop (RTL), replaces hero image */}
           <div className="relative w-full order-1 lg:order-2 flex items-center justify-center">
-            {/* Desktop Image - hero-guy-with-logo-2.png */}
-            <div className="hidden md:block relative w-full h-full flex items-center justify-center overflow-visible">
-              <Image
-                className="w-full h-auto max-w-[110%] xl:max-w-[120%] mx-auto object-contain"
-                src="/home page/hero guy with logo 2.png"
-                alt="Forleva Hero"
-                width={1000}
-                height={1000}
-                priority
-                quality={95}
-              />
-            </div>
-
-            {/* Mobile Image - hero-guy-with-logo-2.png */}
-            <div className="md:hidden relative">
-              <Image
-                className="w-full h-auto max-w-sm mx-auto object-contain"
-                src="/home page/hero guy with logo 2.png"
-                alt="Forleva Hero"
-                width={400}
-                height={400}
-                priority
-                quality={95}
-              />
+            <div className="relative w-full flex items-center justify-center overflow-hidden rounded-lg">
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="w-full h-auto max-w-sm md:max-w-[110%] xl:max-w-[120%] mx-auto object-contain rounded-lg"
+                aria-label="Forleva Hero Video"
+              >
+                <source src="/home%20page/hero%20section%20vedio%20forleva.mp4" type="video/mp4" />
+              </video>
             </div>
           </div>
         </div>

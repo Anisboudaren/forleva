@@ -2,6 +2,7 @@ import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { Award, Download, Share2, Calendar, CheckCircle2 } from "lucide-react"
 import Image from "next/image"
 import { GradientText } from "@/components/text/gradient-text"
+import { OrderCertificateSection } from "@/components/student/order-certificate-section"
 
 export default function CertificatesPage() {
   const certificates = [
@@ -26,13 +27,16 @@ export default function CertificatesPage() {
   return (
     <div className="flex flex-1 flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900">
-          <GradientText text="شهاداتي" gradient="linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)" />
-        </h1>
-        <p className="text-base text-gray-600">
-          شهادات الإتمام التي حصلت عليها من الدورات المكتملة
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900">
+            <GradientText text="شهاداتي" gradient="linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)" />
+          </h1>
+          <p className="text-base text-gray-600">
+            شهادات الإتمام التي حصلت عليها من الدورات المكتملة
+          </p>
+        </div>
+        <OrderCertificateSection />
       </div>
 
       {/* Stats */}

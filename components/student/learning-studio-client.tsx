@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react"
 import { Play, BookOpen, Clock, CheckCircle2, HelpCircle, ExternalLink, FileText, Award, Headphones, CheckSquare, MessageSquare } from "lucide-react"
 import Image from "next/image"
+import { MuxVideoPlayer, isMuxPlaybackUrl } from "@/components/mux-video-player"
 
 type CourseSectionItem = {
   id: string
@@ -95,6 +96,11 @@ export default function LearningStudioClient({ course }: Props) {
     return null
   }, [activeItem])
 
+  const activeMuxUrl =
+    activeItem && (activeItem.type === "VIDEO" || activeItem.type === "video") && activeItem.url && isMuxPlaybackUrl(activeItem.url)
+      ? activeItem.url
+      : null
+
   return (
     <div
       ref={topRef}
@@ -103,7 +109,14 @@ export default function LearningStudioClient({ course }: Props) {
       {/* Main learning area */}
       <div className="flex flex-col gap-4 md:gap-5">
         <div className="rounded-2xl border border-gray-200 bg-black/95 overflow-hidden shadow-lg">
-          {activeEmbedUrl ? (
+          {activeMuxUrl ? (
+            <MuxVideoPlayer
+              key={activeMuxUrl}
+              playbackUrlOrId={activeMuxUrl}
+              title={activeItem?.title ?? course.title}
+              className="w-full aspect-video"
+            />
+          ) : activeEmbedUrl ? (
             <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
               <iframe
                 className="absolute top-0 left-0 w-full h-full"

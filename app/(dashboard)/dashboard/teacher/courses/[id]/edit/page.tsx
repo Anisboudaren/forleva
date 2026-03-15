@@ -12,6 +12,7 @@ type CourseApi = {
   category: string
   price: number
   imageUrl: string | null
+  videoUrl: string | null
   duration: string | null
   level: string | null
   language: string | null
@@ -44,6 +45,7 @@ function mapApiToFormData(c: CourseApi): CourseFormData {
     category: c.category,
     price: String(c.price),
     imageUrl: c.imageUrl ?? '',
+    videoUrl: c.videoUrl ?? '',
     duration: c.duration ?? '',
     level: c.level ?? '',
     language: c.language ?? 'العربية',
@@ -124,7 +126,7 @@ export default function EditCoursePage() {
       mode="edit"
       courseId={course.id}
       initialData={mapApiToFormData(course)}
-      currentStatus={course.status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'}
+      currentStatus={course.status as 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'}
       onSuccess={() => router.push('/dashboard/teacher/courses')}
     />
   )

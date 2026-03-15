@@ -1,16 +1,17 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import Image from 'next/image'
+import { SafeCourseImage } from '@/components/safe-course-image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { PopularCourses } from '@/components/popular-courses/PopularCourses'
 import { GradientText } from '@/components/text/gradient-text'
 import { EnrollDialog, getEnrolledCourseIds } from '@/components/enroll-dialog'
+import { MuxVideoPlayer, isMuxPlaybackUrl } from '@/components/mux-video-player'
 import {
   Play, FileText, ExternalLink, FileCheck, Headphones,
   CheckCircle2, Award, BookOpen, CheckSquare, MessageSquare,
-  HelpCircle, Loader2
+  HelpCircle, Loader2, Star
 } from 'lucide-react'
 import { motion } from 'motion/react'
 
@@ -59,6 +60,7 @@ type CourseData = {
   category: string
   price: number
   imageUrl: string | null
+  videoUrl?: string | null
   duration: string | null
   level: string | null
   language: string | null
@@ -72,6 +74,14 @@ type OrderStatusResponse =
   | { status: 'NONE' }
   | { status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'; id: string }
 
+type CourseReview = {
+  id: string
+  rating: number
+  comment: string | null
+  createdAt: string
+  userName: string
+}
+
 function formatPrice(price: number) {
   return `${price.toLocaleString()} د.ج`
 }
@@ -82,8 +92,6 @@ function youtubeWatchToEmbed(url: string | undefined): string | null {
   const id = match ? match[1] : null
   return id ? `https://www.youtube-nocookie.com/embed/${id}` : null
 }
-
-const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=1200&h=600&fit=crop'
 
 export default function CoursePage() {
   const params = useParams()
@@ -96,6 +104,15 @@ export default function CoursePage() {
   const [isEnrolled, setIsEnrolled] = useState(false)
   const [orderStatus, setOrderStatus] = useState<'NONE' | 'PENDING' | 'CONFIRMED' | 'CANCELLED'>('NONE')
   const [orderLoading, setOrderLoading] = useState(false)
+  const [reviews, setReviews] = useState<CourseReview[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [session, setSession] = useState<{ userId: string } | null>(null)
+  const [hasReviewed, setHasReviewed] = useState(false)
+  const [reviewChecked, setReviewChecked] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) {
@@ -165,6 +182,87 @@ export default function CoursePage() {
     }
   }, [id])
 
+  // Fetch reviews for this course
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    setReviewsLoading(true)
+    fetch(`/api/courses/${encodeURIComponent(id)}/reviews`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CourseReview[]) => {
+        if (!cancelled) setReviews(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        if (!cancelled) setReviews([])
+      })
+      .finally(() => {
+        if (!cancelled) setReviewsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [id])
+
+  // Session and whether current user already reviewed (for form visibility)
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    Promise.all([
+      fetch('/api/auth/session', { credentials: 'include' }).then((r) => r.json()),
+      fetch(`/api/courses/${encodeURIComponent(id)}/reviews/me`, { credentials: 'include' }).then((r) => r.json()),
+    ])
+      .then(([sessionRes, meRes]) => {
+        if (cancelled) return
+        setSession(sessionRes?.user ?? null)
+        setHasReviewed(meRes?.hasReviewed === true)
+      })
+      .catch(() => {
+        if (!cancelled) setReviewChecked(true)
+      })
+      .finally(() => {
+        if (!cancelled) setReviewChecked(true)
+      })
+    return () => { cancelled = true }
+  }, [id])
+
+  const refetchReviews = () => {
+    if (!id) return
+    fetch(`/api/courses/${encodeURIComponent(id)}/reviews`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CourseReview[]) => setReviews(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }
+
+  const submitReview = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || reviewRating < 1 || reviewRating > 5 || reviewSubmitting) return
+    setReviewError(null)
+    setReviewSubmitting(true)
+    fetch(`/api/courses/${encodeURIComponent(id)}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() || undefined }),
+    })
+      .then((res) => {
+        if (res.status === 409) {
+          setHasReviewed(true)
+          setReviewError('لقد قمت بتقييم هذه الدورة مسبقاً')
+          return
+        }
+        if (!res.ok) return res.json().then((d) => { throw new Error(d?.error || 'فشل الإرسال') })
+        return res.json()
+      })
+      .then(() => {
+        setReviewRating(0)
+        setReviewComment('')
+        setHasReviewed(true)
+        refetchReviews()
+      })
+      .catch((err) => {
+        setReviewError(err?.message || 'حدث خطأ، جرّب لاحقاً')
+      })
+      .finally(() => setReviewSubmitting(false))
+  }
+
   const introEmbedUrl = useMemo(() => {
     if (!course?.sections?.length) return null
     for (const sec of course.sections) {
@@ -210,7 +308,6 @@ export default function CoursePage() {
     )
   }
 
-  const imageSrc = course.imageUrl || PLACEHOLDER_IMAGE
   const instructorName = course.teacher?.fullName ?? 'مدرّس'
 
   return (
@@ -254,9 +351,9 @@ export default function CoursePage() {
               </div>
 
               <div className='mb-6 rounded-2xl overflow-hidden shadow-lg border border-gray-200'>
-                <Image
+                <SafeCourseImage
                   className='w-full h-auto object-cover'
-                  src={imageSrc}
+                  src={course.imageUrl}
                   alt={course.title}
                   width={1920}
                   height={960}
@@ -266,7 +363,16 @@ export default function CoursePage() {
                 />
               </div>
 
-              {introEmbedUrl && (
+              {course.videoUrl && isMuxPlaybackUrl(course.videoUrl) && (
+                <div className='mb-6 rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg'>
+                  <MuxVideoPlayer
+                    playbackUrlOrId={course.videoUrl}
+                    title={`مقدمة - ${course.title}`}
+                    className='w-full'
+                  />
+                </div>
+              )}
+              {!course.videoUrl && introEmbedUrl && (
                 <div className='rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg'>
                   <div className='relative w-full' style={{ paddingBottom: '56.25%' }}>
                     <iframe
@@ -493,6 +599,106 @@ export default function CoursePage() {
               آراء <GradientText text='المتعلمين' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
             </h2>
             <p className='text-gray-600'>مقتطفات من تعليقات حقيقية حول محتوى الدورة وجودته</p>
+          </div>
+
+          {!session && reviewChecked && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className='rounded-2xl border border-amber-200 bg-amber-50/50 p-6 mb-8 text-center'
+            >
+              <p className='text-gray-700 mb-4'>سجّل الدخول لترك تقييم لهذه الدورة</p>
+              <Link
+                href={`/login?redirect=${encodeURIComponent(`/courses/${id}`)}`}
+                className='inline-flex items-center justify-center rounded-full bg-amber-500 text-white px-6 py-2.5 font-semibold hover:bg-amber-600 transition-colors'
+              >
+                تسجيل الدخول
+              </Link>
+            </motion.div>
+          )}
+
+          {session && !hasReviewed && reviewChecked && (
+            <motion.form
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              onSubmit={submitReview}
+              className='rounded-2xl border border-gray-200 p-6 mb-8 bg-white shadow-sm'
+            >
+              <h3 className='text-lg font-bold text-gray-900 mb-4'>اكتب تقييمك</h3>
+              <div className='flex gap-1 mb-4' dir='ltr'>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type='button'
+                    onClick={() => setReviewRating(value)}
+                    className='p-1 rounded focus:outline-none focus:ring-2 focus:ring-amber-400'
+                    aria-label={`${value} نجوم`}
+                  >
+                    <Star
+                      className={`h-8 w-8 transition-colors ${
+                        value <= reviewRating ? 'fill-amber-500 text-amber-500' : 'fill-gray-200 text-gray-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder='اكتب تعليقك (اختياري)...'
+                rows={3}
+                className='w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4 resize-y'
+              />
+              {reviewError && <p className='text-sm text-red-600 mb-2'>{reviewError}</p>}
+              <button
+                type='submit'
+                disabled={reviewRating < 1 || reviewSubmitting}
+                className='rounded-full bg-amber-500 text-white px-6 py-2.5 font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              >
+                {reviewSubmitting ? 'جاري الإرسال...' : 'إرسال التقييم'}
+              </button>
+            </motion.form>
+          )}
+
+          {session && hasReviewed && reviewChecked && (
+            <div className='rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 mb-8 text-center'>
+              <p className='text-emerald-800 font-medium'>لقد قمت بتقييم هذه الدورة مسبقاً</p>
+            </div>
+          )}
+
+          <div className='space-y-4'>
+            {reviewsLoading ? (
+              <div className='flex justify-center py-8'>
+                <Loader2 className='w-8 h-8 text-amber-500 animate-spin' />
+              </div>
+            ) : reviews.length === 0 ? (
+              <p className='text-center text-gray-500 py-6'>لا توجد تقييمات بعد. كن أول من يقيّم هذه الدورة.</p>
+            ) : (
+              reviews.map((r) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className='rounded-2xl border border-gray-200 p-5 bg-white shadow-sm'
+                >
+                  <div className='flex items-start justify-between gap-4 mb-2'>
+                    <span className='font-semibold text-gray-900'>{r.userName}</span>
+                    <div className='flex gap-0.5' dir='ltr'>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${i <= r.rating ? 'fill-amber-500 text-amber-500' : 'fill-gray-200 text-gray-200'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {r.comment && <p className='text-sm text-gray-700 leading-relaxed mb-2'>{r.comment}</p>}
+                  <span className='text-xs text-gray-500'>
+                    {new Date(r.createdAt).toLocaleDateString('ar-DZ', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </section>

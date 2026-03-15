@@ -1,14 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import { SafeCourseImage } from '@/components/safe-course-image'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { GradientText } from '@/components/text/gradient-text'
 import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
-
-const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop'
 
 type CourseCard = {
   id: string
@@ -116,9 +114,7 @@ export default function CoursesByCategoryPage() {
                 </p>
               </div>
               <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8'>
-                {filtered.map((course, index) => {
-                  const imageSrc = course.imageUrl || PLACEHOLDER_IMAGE
-                  return (
+                {filtered.map((course, index) => (
                     <motion.div
                       key={course.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -127,9 +123,9 @@ export default function CoursesByCategoryPage() {
                     >
                       <div className='relative flex flex-col overflow-hidden transition-all duration-200 transform bg-white border border-gray-100 shadow group rounded-xl hover:shadow-lg hover:-translate-y-1 h-full'>
                         <Link href={`/courses/${course.id}`} title='' className='flex shrink-0 aspect-w-4 aspect-h-3 relative block overflow-hidden'>
-                          <Image
+                          <SafeCourseImage
                             className='object-cover w-full h-full transition-all duration-200 transform group-hover:scale-110'
-                            src={imageSrc}
+                            src={course.imageUrl}
                             alt={course.title}
                             width={320}
                             height={240}
@@ -172,7 +168,7 @@ export default function CoursesByCategoryPage() {
                       </div>
                     </motion.div>
                   )
-                })}
+                ))}
               </div>
             </>
           ) : (

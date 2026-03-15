@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardContentCard, DashboardCard } from '@/components/dashboard/DashboardCard'
 import { BookOpen, Plus, Edit, Eye, Users, TrendingUp, Search, MoreVertical } from 'lucide-react'
-import Image from 'next/image'
+import { SafeCourseImage } from '@/components/safe-course-image'
 import { GradientText } from '@/components/text/gradient-text'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
-type CourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
 type CourseRow = {
   id: string
@@ -29,12 +29,14 @@ type CourseRow = {
 
 const STATUS_LABEL: Record<CourseStatus, string> = {
   DRAFT: 'مسودة',
+  PENDING_REVIEW: 'قيد المراجعة',
   PUBLISHED: 'منشورة',
   ARCHIVED: 'أرشيف',
 }
 
 const STATUS_CLASS: Record<CourseStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
+  PENDING_REVIEW: 'bg-amber-100 text-amber-700',
   PUBLISHED: 'bg-green-100 text-green-700',
   ARCHIVED: 'bg-amber-100 text-amber-700',
 }
@@ -43,7 +45,7 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<CourseRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'archived'>('all')
+  const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'archived' | 'pending_review'>('all')
   const [search, setSearch] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -53,7 +55,15 @@ export default function CoursesPage() {
     setError(null)
     try {
       const statusParam =
-        filter === 'published' ? 'published' : filter === 'draft' ? 'draft' : filter === 'archived' ? 'archived' : ''
+        filter === 'published'
+          ? 'published'
+          : filter === 'draft'
+            ? 'draft'
+            : filter === 'archived'
+              ? 'archived'
+              : filter === 'pending_review'
+                ? 'pending_review'
+                : ''
       const url = statusParam ? `/api/teacher/courses?status=${statusParam}` : '/api/teacher/courses'
       const res = await fetch(url)
       const data = await res.json().catch(() => ({}))
@@ -101,6 +111,7 @@ export default function CoursesPage() {
 
   const publishedCourses = courses.filter((c) => c.status === 'PUBLISHED')
   const draftCourses = courses.filter((c) => c.status === 'DRAFT')
+  const pendingReviewCourses = courses.filter((c) => c.status === 'PENDING_REVIEW')
   const archivedCourses = courses.filter((c) => c.status === 'ARCHIVED')
   const searchLower = search.trim().toLowerCase()
   const filteredBySearch =
@@ -149,6 +160,13 @@ export default function CoursesPage() {
         <DashboardCard
           variant="yellow"
           icon={BookOpen}
+          title="قيد المراجعة"
+          value={pendingReviewCourses.length}
+          description="بانتظار موافقة الإدارة"
+        />
+        <DashboardCard
+          variant="green"
+          icon={BookOpen}
           title="المنشورة"
           value={publishedCourses.length}
           description="دورة نشطة"
@@ -171,6 +189,14 @@ export default function CoursesPage() {
             }`}
           >
             الكل ({courses.length})
+          </button>
+          <button
+            onClick={() => setFilter('pending_review')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              filter === 'pending_review' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            قيد المراجعة ({pendingReviewCourses.length})
           </button>
           <button
             onClick={() => setFilter('published')}
@@ -235,6 +261,28 @@ export default function CoursesPage() {
         </DashboardContentCard>
       ) : filter === 'all' ? (
         <>
+          {filteredBySearch.filter((c) => c.status === 'PENDING_REVIEW').length > 0 && (
+            <DashboardContentCard
+              title="قيد المراجعة"
+              description={`${pendingReviewCourses.length} دورة بانتظار موافقة الإدارة`}
+              icon={BookOpen}
+            >
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredBySearch
+                  .filter((c) => c.status === 'PENDING_REVIEW')
+                  .map((course) => (
+                    <CourseCard
+                      key={course.id}
+                      course={course}
+                      onStatusChange={updateStatus}
+                      updatingId={updatingId}
+                      openMenuId={openMenuId}
+                      setOpenMenuId={setOpenMenuId}
+                    />
+                  ))}
+              </div>
+            </DashboardContentCard>
+          )}
           {filteredBySearch.filter((c) => c.status === 'PUBLISHED').length > 0 && (
             <DashboardContentCard
               title="الدورات المنشورة"
@@ -304,7 +352,9 @@ export default function CoursesPage() {
         </>
       ) : (
         <DashboardContentCard
-          title={STATUS_LABEL[filter === 'published' ? 'PUBLISHED' : filter === 'draft' ? 'DRAFT' : 'ARCHIVED']}
+          title={STATUS_LABEL[
+            filter === 'published' ? 'PUBLISHED' : filter === 'draft' ? 'DRAFT' : filter === 'pending_review' ? 'PENDING_REVIEW' : 'ARCHIVED'
+          ]}
           description={`${filteredBySearch.length} دورة`}
           icon={BookOpen}
         >
@@ -339,15 +389,14 @@ function CourseCard({
   openMenuId: string | null
   setOpenMenuId: (id: string | null) => void
 }) {
-  const imageUrl = course.imageUrl || 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop'
   const isUpdating = updatingId === course.id
 
   return (
     <div className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300">
       <div className="flex flex-col">
         <div className="relative w-full h-40 overflow-hidden">
-          <Image
-            src={imageUrl}
+          <SafeCourseImage
+            src={course.imageUrl}
             alt={course.title}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -370,13 +419,22 @@ function CourseCard({
               </Button>
               {openMenuId === course.id && (
                 <div className="absolute left-0 top-full mt-1 z-10 w-48 py-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {course.status !== 'PUBLISHED' && (
+                  {course.status !== 'PUBLISHED' && course.status !== 'PENDING_REVIEW' && (
                     <button
                       type="button"
                       className="w-full px-3 py-2 text-right text-sm text-gray-700 hover:bg-green-50 hover:text-green-700"
                       onClick={() => onStatusChange(course.id, 'PUBLISHED')}
                     >
                       نشر
+                    </button>
+                  )}
+                  {course.status === 'PENDING_REVIEW' && (
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-right text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => onStatusChange(course.id, 'DRAFT')}
+                    >
+                      إلغاء المراجعة
                     </button>
                   )}
                   {course.status !== 'ARCHIVED' && (

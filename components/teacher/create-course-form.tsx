@@ -79,6 +79,8 @@ export interface CourseFormData {
   category: string
   price: string
   imageUrl: string
+  /** Main course presentation video (Mux HLS URL), shown on course page before purchase */
+  videoUrl?: string
   duration: string
   level: string
   language: string
@@ -143,14 +145,18 @@ function ContentItemRow({
   sectionId,
   onUpdate,
   onRemove,
+  onUploadVideo,
 }: {
   item: ContentItem
   sectionId: string
   onUpdate: (itemId: string, patch: Partial<ContentItem>) => void
   onRemove: (itemId: string) => void
+  onUploadVideo?: (file: File) => Promise<string | null>
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+  const [sectionVideoUploading, setSectionVideoUploading] = useState(false)
+  const [sectionVideoError, setSectionVideoError] = useState<string | null>(null)
   const typeConfig = getTypeConfig(item.type)
   const TypeIcon = typeConfig.icon
 
@@ -360,16 +366,35 @@ function ContentItemRow({
                   />
                 </div>
                 <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رفع فيديو</Label>
+                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رفع فيديو (Mux)</Label>
                   <input
                     type="file"
                     accept="video/*"
                     className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
-                    onChange={(e) => {
+                    disabled={sectionVideoUploading || !onUploadVideo}
+                    onChange={async (e) => {
                       const file = e.target.files?.[0]
-                      if (file) onUpdate(item.id, { fileUrl: URL.createObjectURL(file) })
+                      if (!file || !onUploadVideo) return
+                      setSectionVideoUploading(true)
+                      setSectionVideoError(null)
+                      try {
+                        const playbackUrl = await onUploadVideo(file)
+                        if (playbackUrl) onUpdate(item.id, { url: playbackUrl })
+                        else setSectionVideoError('فشل رفع الفيديو')
+                      } catch {
+                        setSectionVideoError('فشل رفع الفيديو')
+                      } finally {
+                        setSectionVideoUploading(false)
+                        e.target.value = ''
+                      }
                     }}
                   />
+                  {sectionVideoUploading && (
+                    <p className="text-xs text-gray-600 mt-1">جاري الرفع والمعالجة...</p>
+                  )}
+                  {sectionVideoError && (
+                    <p className="text-xs text-red-600 mt-1" role="alert">{sectionVideoError}</p>
+                  )}
                 </div>
                 <div>
                   <Label className="mb-2 block text-sm font-medium text-gray-700">المدة</Label>
@@ -514,7 +539,7 @@ export type CreateCourseFormProps = {
   mode?: 'create' | 'edit'
   courseId?: string
   initialData?: CourseFormData
-  currentStatus?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  currentStatus?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
   onSuccess?: () => void
 }
 
@@ -523,6 +548,7 @@ const defaultFormData: CourseFormData = {
   category: '',
   price: '',
   imageUrl: '',
+  videoUrl: '',
   duration: '',
   level: '',
   language: 'العربية',
@@ -660,6 +686,7 @@ export function CreateCourseForm({
       category: form.category.trim() || 'أخرى',
       price: form.price === '' ? 0 : parseInt(String(form.price), 10) || 0,
       imageUrl: form.imageUrl.trim() || undefined,
+      videoUrl: form.videoUrl?.trim() || undefined,
       duration: form.duration.trim() || undefined,
       level: form.level.trim() || undefined,
       language: form.language.trim() || undefined,
@@ -672,9 +699,81 @@ export function CreateCourseForm({
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | null>(null)
   const submitStatusRef = useRef<'DRAFT' | 'PUBLISHED'>('PUBLISHED')
   const formRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
+
+  // Mux presentation video upload state
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const handleVideoSelect: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0] ?? null
+    setVideoFile(file)
+    setUploadError(null)
+    setUploadProgress(0)
+  }
+
+  /** Run Mux direct upload: get URL, PUT file, poll until playback URL. Returns playbackUrl or null. */
+  const runMuxUpload = async (file: File, onProgress?: (pct: number) => void): Promise<string | null> => {
+    const createRes = await fetch('/api/mux/direct-upload', { method: 'POST' })
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({})) as { error?: string }
+      throw new Error(err.error ?? 'فشل إنشاء الرفع')
+    }
+    const { url: uploadUrl, uploadId } = (await createRes.json()) as { url: string; uploadId: string }
+    if (!uploadUrl || !uploadId) return null
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', uploadUrl)
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 90))
+      }
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('فشل الرفع')))
+      xhr.onerror = () => reject(new Error('فشل الاتصال'))
+      xhr.send(file)
+    })
+    onProgress?.(90)
+
+    const maxAttempts = 60
+    const delayMs = 2000
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, delayMs))
+      const statusRes = await fetch(`/api/mux/upload/${uploadId}/status`)
+      if (!statusRes.ok) continue
+      const data = (await statusRes.json()) as { status?: string; playbackUrl?: string }
+      if (data.playbackUrl) {
+        onProgress?.(100)
+        return data.playbackUrl
+      }
+      if (data.status === 'errored') return null
+    }
+    return null
+  }
+
+  const handleVideoUpload = async () => {
+    if (!videoFile || uploadingVideo) return
+    setUploadingVideo(true)
+    setUploadProgress(0)
+    setUploadError(null)
+    try {
+      const playbackUrl = await runMuxUpload(videoFile, setUploadProgress)
+      if (playbackUrl) {
+        update('videoUrl', playbackUrl)
+        setUploadProgress(100)
+      } else {
+        setUploadError('فشل رفع الفيديو أو انتهت مهلة المعالجة')
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'فشل رفع الفيديو')
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PUBLISHED') => {
     e.preventDefault()
@@ -704,7 +803,15 @@ export function CreateCourseForm({
         setSubmitting(false)
         return
       }
-      onSuccess?.() ?? router.push('/dashboard/teacher/courses')
+      if (submitStatusRef.current === 'PUBLISHED') {
+        setSubmitSuccessMessage('تم إرسال الدورة للمراجعة. ستظهر بعد موافقة الإدارة.')
+        setTimeout(() => {
+          onSuccess?.()
+          router.push('/dashboard/teacher/courses')
+        }, 2500)
+      } else {
+        onSuccess?.() ?? router.push('/dashboard/teacher/courses')
+      }
     } catch (err) {
       setSubmitError('حدث خطأ في الاتصال')
       setSubmitting(false)
@@ -772,6 +879,11 @@ export function CreateCourseForm({
               {submitError}
             </p>
           )}
+          {submitSuccessMessage && (
+            <p className="text-sm text-green-700 col-span-full" role="status">
+              {submitSuccessMessage}
+            </p>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -784,12 +896,13 @@ export function CreateCourseForm({
           >
             حفظ كمسودة
           </Button>
-          <button
-            type="submit"
-            className="relative inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white rounded-xl transition-all duration-200 group/btn w-full sm:w-auto disabled:opacity-70"
+          <Button
+            type="button"
+            className="relative inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white rounded-xl transition-all duration-200 group/btn w-full sm:w-auto disabled:opacity-70 overflow-hidden"
             disabled={submitting}
             onClick={() => {
               submitStatusRef.current = 'PUBLISHED'
+              formRef.current?.requestSubmit()
             }}
           >
             <div className="absolute transition-all duration-200 rounded-xl -inset-px bg-gradient-to-r from-yellow-400 to-yellow-600 group-hover/btn:shadow-lg group-hover/btn:shadow-yellow-500/50" />
@@ -797,7 +910,7 @@ export function CreateCourseForm({
             <span className="relative z-10">
               {mode === 'edit' ? 'حفظ ونشر' : 'إنشاء الدورة'}
             </span>
-          </button>
+          </Button>
           {mode === 'edit' && courseId && (
             <Button
               type="button"
@@ -958,6 +1071,55 @@ export function CreateCourseForm({
                 placeholder="https://..."
               />
             </div>
+            <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+              <Label className="mb-1 block">
+                فيديو تقديمي (Mux) — يظهر في الصفحة الرئيسية للدورة
+              </Label>
+              <p className="text-xs text-gray-500">
+                ارفع فيديو تعريفي قصير عن الدورة. سيتم حفظه في Mux وعرضه تلقائياً.
+              </p>
+              <input
+                type="file"
+                accept="video/*"
+                className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
+                onChange={handleVideoSelect}
+                disabled={uploadingVideo || submitting}
+              />
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleVideoUpload}
+                  disabled={!videoFile || uploadingVideo || submitting}
+                >
+                  {uploadingVideo ? 'جاري رفع الفيديو...' : 'رفع الفيديو إلى Mux'}
+                </Button>
+                {uploadProgress > 0 && (
+                  <div className="text-xs text-gray-600">
+                    نسبة الرفع: {uploadProgress}%
+                  </div>
+                )}
+              </div>
+              {uploadError && (
+                <p className="text-xs text-red-600" role="alert">
+                  {uploadError}
+                </p>
+              )}
+              {form.videoUrl && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-600">
+                    تم تعيين فيديو تقديمي لهذه الدورة.
+                  </p>
+                  <Input
+                    type="url"
+                    value={form.videoUrl}
+                    onChange={(e) => update('videoUrl', e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              )}
+            </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <Label htmlFor="description" className="mb-2 block">
                 نبذة عن الدورة
@@ -1061,6 +1223,7 @@ export function CreateCourseForm({
                         onRemove={(itemId) =>
                           removeContentItem(section.id, itemId)
                         }
+                        onUploadVideo={async (file) => runMuxUpload(file)}
                       />
                     ))}
                     <Button

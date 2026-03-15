@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
-import type { CourseStatus, ContentType } from '@/lib/schema-enums'
+import type { ContentType } from '@/lib/schema-enums'
+
+type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
 const CONTENT_TYPE_MAP: Record<string, ContentType> = {
   video: 'VIDEO',
@@ -54,10 +56,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const statusParam = searchParams.get('status')
+    const statusFilterMap: Record<string, CourseStatus> = {
+      draft: 'DRAFT',
+      published: 'PUBLISHED',
+      archived: 'ARCHIVED',
+      pending_review: 'PENDING_REVIEW',
+    }
     const statusFilter =
-      statusParam === 'draft' || statusParam === 'published' || statusParam === 'archived'
-        ? (statusParam.toUpperCase() as CourseStatus)
-        : undefined
+      statusParam && statusParam in statusFilterMap ? statusFilterMap[statusParam] : undefined
 
     const courses = await prisma.course.findMany({
       where: {
@@ -79,6 +85,7 @@ export async function GET(request: NextRequest) {
       return {
         id: c.id,
         title: c.title,
+        videoUrl: c.videoUrl,
         category: c.category,
         price: c.price,
         imageUrl: c.imageUrl,
@@ -112,6 +119,7 @@ export async function POST(request: NextRequest) {
       category,
       price,
       imageUrl,
+      videoUrl,
       duration,
       level,
       language,
@@ -124,6 +132,7 @@ export async function POST(request: NextRequest) {
       category?: string
       price?: string | number
       imageUrl?: string
+      videoUrl?: string
       duration?: string
       level?: string
       language?: string
@@ -141,8 +150,13 @@ export async function POST(request: NextRequest) {
     const outcomes = Array.isArray(learningOutcomes)
       ? learningOutcomes.filter((o): o is string => typeof o === 'string')
       : []
+    // Teachers cannot set PUBLISHED directly; map to PENDING_REVIEW for admin approval.
     const statusEnum: CourseStatus =
-      (status === 'PUBLISHED' || status === 'ARCHIVED' ? status : 'DRAFT') as CourseStatus
+      status === 'PUBLISHED'
+        ? 'PENDING_REVIEW'
+        : status === 'ARCHIVED'
+          ? 'ARCHIVED'
+          : 'DRAFT'
 
     const createData = {
       teacherId: session.userId,
@@ -151,6 +165,7 @@ export async function POST(request: NextRequest) {
       category: (category && String(category).trim()) || 'أخرى',
       price: isNaN(priceNum) ? 0 : priceNum,
       imageUrl: imageUrl && String(imageUrl).trim() ? String(imageUrl).trim() : null,
+      videoUrl: videoUrl && String(videoUrl).trim() ? String(videoUrl).trim() : null,
       duration: duration && String(duration).trim() ? String(duration).trim() : null,
       level: level && String(level).trim() ? String(level).trim() : null,
       language: language && String(language).trim() ? String(language).trim() : null,
