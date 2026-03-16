@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getAdminSession } from '@/lib/auth-session'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -65,6 +68,31 @@ export async function PATCH(
       data: { status: newStatus },
       include: {
         teacher: { select: { id: true, fullName: true } },
+      },
+    })
+
+    let actionCode: string
+    if (action === 'approve') {
+      actionCode = AUDIT_ACTIONS.COURSE_APPROVE
+    } else if (action === 'reject') {
+      actionCode = AUDIT_ACTIONS.COURSE_REJECT
+    } else {
+      actionCode = AUDIT_ACTIONS.COURSE_SUSPEND
+    }
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: session.role as AuditActorRole,
+      action: actionCode,
+      entityType: 'course',
+      entityId: updated.id,
+      meta: {
+        courseId: updated.id,
+        courseTitle: updated.title,
+        previousStatus: course.status,
+        newStatus,
+        teacherId: updated.teacher.id,
+        teacherName: updated.teacher.fullName,
       },
     })
 

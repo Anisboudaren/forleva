@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getAdminSession } from '@/lib/auth-session'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 /**
  * POST: Admin approves or rejects a deletion request.
@@ -37,6 +40,9 @@ export async function POST(
   try {
     const review = await prisma.review.findUnique({
       where: { id: reviewId },
+      include: {
+        course: { select: { id: true, title: true } },
+      },
     })
     if (!review) {
       return NextResponse.json({ error: 'التقييم غير موجود' }, { status: 404 })
@@ -44,6 +50,19 @@ export async function POST(
 
     if (action === 'approve') {
       await prisma.review.delete({ where: { id: reviewId } })
+
+      void createAuditLog({
+        actorId: session.userId,
+        actorRole: session.role as AuditActorRole,
+        action: AUDIT_ACTIONS.REVIEW_DELETION_APPROVE,
+        entityType: 'review',
+        entityId: reviewId,
+        meta: {
+          reviewId,
+          courseId: review.course.id,
+          courseTitle: review.course.title,
+        },
+      })
       return NextResponse.json({ success: true, deleted: true })
     }
 
@@ -52,6 +71,19 @@ export async function POST(
       data: {
         deletionRequestedAt: null,
         deletionRequestedBy: null,
+      },
+    })
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: session.role as AuditActorRole,
+      action: AUDIT_ACTIONS.REVIEW_DELETION_REJECT,
+      entityType: 'review',
+      entityId: reviewId,
+      meta: {
+        reviewId,
+        courseId: review.course.id,
+        courseTitle: review.course.title,
       },
     })
     return NextResponse.json({ success: true, deleted: false })

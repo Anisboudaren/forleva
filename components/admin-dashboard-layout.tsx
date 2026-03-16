@@ -23,6 +23,7 @@ import {
   UserCog,
   ShoppingBag,
   Star,
+  ListChecks,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -37,6 +38,7 @@ const adminMenuItems = [
   { title: "الدورات", icon: BookOpen, href: "/admin/courses" },
   { title: "الطلبات", icon: ShoppingBag, href: "/admin/orders" },
   { title: "التقييمات", icon: Star, href: "/admin/reviews" },
+  { title: "سجل النشاط", icon: ListChecks, href: "/admin/logs", superAdminOnly: true },
   { title: "الإعدادات", icon: Settings, href: "/admin/settings" },
 ]
 

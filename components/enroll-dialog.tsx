@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, User, Loader2, LogOut } from 'lucide-react'
+import { CheckCircle2, User, Loader2, LogOut, CreditCard, Phone } from 'lucide-react'
 
 type Session = { userId: string; role: string; email: string | null }
 
@@ -47,7 +47,7 @@ function addEnrolledCourseId(courseId: string): void {
   localStorage.setItem(ENROLLED_COURSES_KEY, JSON.stringify([...ids, courseId]))
 }
 
-type Step = 'loading' | 'login_required' | 'student_required' | 'confirm' | 'success'
+type Step = 'loading' | 'login_required' | 'student_required' | 'confirm' | 'choose_payment' | 'success'
 
 type EnrollDialogProps = {
   open: boolean
@@ -63,12 +63,14 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [paymentChoice, setPaymentChoice] = useState<'chargily' | 'pay_later' | null>(null)
 
   useEffect(() => {
     if (!open) return
     setStep('loading')
     setSession(null)
     setSubmitError(null)
+    setPaymentChoice(null)
     fetch('/api/auth/session', { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
@@ -96,8 +98,51 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
     }
   }
 
-  const handleConfirmEnroll = async () => {
+  const handlePayNow = async () => {
     if (!course) return
+    setPaymentChoice('chargily')
+    setSubmitError(null)
+    setIsSubmitting(true)
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ courseId: course.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSubmitError((data.error as string) || 'فشل إنشاء الطلب. حاول مرة أخرى.')
+        return
+      }
+      const orderId = (data as { id?: string }).id
+      if (!orderId) {
+        setSubmitError('فشل إنشاء الطلب. حاول مرة أخرى.')
+        return
+      }
+      const checkoutRes = await fetch('/api/chargily/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ orderId }),
+      })
+      const checkoutData = (await checkoutRes.json().catch(() => ({}))) as { checkoutUrl?: string; error?: string }
+      if (checkoutRes.ok && checkoutData.checkoutUrl) {
+        onEnrollSuccess?.(course.id)
+        window.location.href = checkoutData.checkoutUrl
+        return
+      }
+      setSubmitError((checkoutData as { error?: string }).error || 'تعذر فتح صفحة الدفع. جرب الدفع لاحقاً أو اختر "الدفع لاحقاً".')
+    } catch {
+      setSubmitError('فشل إنشاء الطلب. حاول مرة أخرى.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handlePayLater = async () => {
+    if (!course) return
+    setPaymentChoice('pay_later')
     setSubmitError(null)
     setIsSubmitting(true)
     try {
@@ -227,9 +272,73 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
               <p className="font-bold text-gray-900">{course.title}</p>
               <p className="mt-1 text-lg font-black text-amber-600">{formatPrice(course.price)}</p>
             </div>
-            <p className="text-sm text-gray-600">
-              هل أنت متأكد من رغبتك في الاشتراك؟
-            </p>
+            <DialogFooter className="flex flex-row gap-3 sm:justify-start">
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => handleClose(false)}
+              >
+                إلغاء
+              </Button>
+              <Button
+                className="rounded-full"
+                style={{ background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
+                onClick={() => setStep('choose_payment')}
+              >
+                اختر طريقة الدفع
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'choose_payment' && course && (
+          <>
+            <DialogHeader>
+              <DialogTitle>اختر طريقة الدفع</DialogTitle>
+              <DialogDescription>
+                الدورة: {course.title} — {formatPrice(course.price)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <button
+                type="button"
+                onClick={handlePayNow}
+                disabled={isSubmitting}
+                className="w-full flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-white p-4 text-right hover:border-amber-300 hover:bg-amber-50/30 transition-all disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              >
+                <div className="rounded-full bg-amber-100 p-2 shrink-0">
+                  <CreditCard className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900">الدفع الآن (شارجيلي)</p>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    ادفع الآن عبر EDAHABIA أو CIB. يتم تفعيل الدورة فوراً بعد إتمام الدفع.
+                  </p>
+                </div>
+                {isSubmitting && paymentChoice === 'chargily' && (
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handlePayLater}
+                disabled={isSubmitting}
+                className="w-full flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-white p-4 text-right hover:border-amber-300 hover:bg-amber-50/30 transition-all disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              >
+                <div className="rounded-full bg-gray-100 p-2 shrink-0">
+                  <Phone className="h-5 w-5 text-gray-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900">الدفع لاحقاً (بريدي موب / CCP)</p>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    سيتواصل معك أحد من الفريق خلال 24 ساعة عبر واتساب أو مكالمة لتأكيد الطلب واستلام الدفع.
+                  </p>
+                </div>
+                {isSubmitting && paymentChoice === 'pay_later' && (
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />
+                )}
+              </button>
+            </div>
             {submitError && (
               <p className="text-sm text-red-600" role="alert">
                 {submitError}
@@ -239,25 +348,10 @@ export function EnrollDialog({ open, onOpenChange, course, onEnrollSuccess }: En
               <Button
                 variant="outline"
                 className="rounded-full"
-                onClick={() => handleClose(false)}
+                onClick={() => setStep('confirm')}
                 disabled={isSubmitting}
               >
-                إلغاء
-              </Button>
-              <Button
-                className="rounded-full"
-                style={{ background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
-                onClick={handleConfirmEnroll}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                    جاري الإرسال...
-                  </>
-                ) : (
-                  'نعم، أريد الاشتراك'
-                )}
+                رجوع
               </Button>
             </DialogFooter>
           </>

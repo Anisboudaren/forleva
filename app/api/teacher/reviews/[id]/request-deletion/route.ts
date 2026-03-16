@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getUserSession } from '@/lib/user-session'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 /**
  * POST: Request deletion of a review (teacher only, for their course).
@@ -23,7 +26,7 @@ export async function POST(
   try {
     const review = await prisma.review.findUnique({
       where: { id: reviewId },
-      include: { course: { select: { teacherId: true } } },
+      include: { course: { select: { id: true, title: true, teacherId: true } } },
     })
     if (!review) {
       return NextResponse.json({ error: 'التقييم غير موجود' }, { status: 404 })
@@ -41,6 +44,20 @@ export async function POST(
       data: {
         deletionRequestedAt: new Date(),
         deletionRequestedBy: session.userId,
+      },
+    })
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: 'TEACHER' as AuditActorRole,
+      action: AUDIT_ACTIONS.REVIEW_DELETION_REQUEST,
+      entityType: 'review',
+      entityId: reviewId,
+      meta: {
+        reviewId,
+        courseId: review.course.id,
+        courseTitle: review.course.title,
+        teacherId: review.course.teacherId,
       },
     })
 

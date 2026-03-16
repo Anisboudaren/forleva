@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
 import type { UserRole } from '@/lib/schema-enums'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 export async function PATCH(
   req: Request,
@@ -57,7 +60,7 @@ export async function PATCH(
       )
     }
 
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id },
       data: {
         fullName,
@@ -65,6 +68,22 @@ export async function PATCH(
         whatsapp: whatsapp || null,
         email: email || null,
         role,
+      },
+    })
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: session.role as AuditActorRole,
+      action: AUDIT_ACTIONS.ADMIN_UPDATE,
+      entityType: 'admin',
+      entityId: updated.id,
+      meta: {
+        adminId: updated.id,
+        previousRole: existing.role,
+        newRole: updated.role,
+        adminName: updated.fullName,
+        adminEmail: updated.email,
+        adminPhone: updated.phone,
       },
     })
     return NextResponse.json({ success: true })

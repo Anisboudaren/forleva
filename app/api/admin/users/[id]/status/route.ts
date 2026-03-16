@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
 import type { AccountStatus } from '@/lib/schema-enums'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 const VALID_STATUSES: AccountStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED', 'BLOCKED']
 
@@ -26,9 +29,33 @@ export async function PATCH(
         { status: 400 }
       )
     }
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, status: true, role: true, fullName: true, email: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 })
+    }
+
     await prisma.user.update({
       where: { id },
       data: { status: status as AccountStatus },
+    })
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: session.role as AuditActorRole,
+      action: AUDIT_ACTIONS.USER_STATUS_CHANGE,
+      entityType: 'user',
+      entityId: existing.id,
+      meta: {
+        userId: existing.id,
+        previousStatus: existing.status,
+        newStatus: status,
+        userRole: existing.role,
+        userName: existing.fullName,
+        userEmail: existing.email,
+      },
     })
     return NextResponse.json({ success: true })
   } catch (e) {

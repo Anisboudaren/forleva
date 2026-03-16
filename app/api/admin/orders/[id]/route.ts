@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
 import type { OrderStatus } from '@/lib/schema-enums'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 const VALID_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
 
@@ -41,6 +44,33 @@ export async function PATCH(
       data: updateData,
       include: { user: true, course: true },
     })
+
+    let actionCode: string | undefined
+    if (updateData.status === 'CONFIRMED') {
+      actionCode = AUDIT_ACTIONS.ORDER_CONFIRM
+    } else if (updateData.status === 'CANCELLED') {
+      actionCode = AUDIT_ACTIONS.ORDER_CANCEL
+    } else if (!updateData.status && adminNotes !== undefined) {
+      actionCode = AUDIT_ACTIONS.ORDER_UPDATE_NOTES
+    }
+
+    if (actionCode) {
+      void createAuditLog({
+        actorId: session.userId,
+        actorRole: session.role as AuditActorRole,
+        action: actionCode,
+        entityType: 'order',
+        entityId: order.id,
+        meta: {
+          orderId: order.id,
+          status: order.status,
+          adminNotes: order.adminNotes,
+          userId: order.userId,
+          courseId: order.courseId,
+        },
+      })
+    }
+
     return NextResponse.json(order)
   } catch (e) {
     if (e && typeof e === 'object' && 'code' in e && e.code === 'P2025') {

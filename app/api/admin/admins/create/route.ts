@@ -3,6 +3,9 @@ import bcrypt from 'bcrypt'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
 import type { UserRole } from '@/lib/schema-enums'
+import type { AuditActorRole } from '@prisma/client'
+import { createAuditLog } from '@/lib/audit-log'
+import { AUDIT_ACTIONS } from '@/lib/audit-actions'
 
 export async function POST(req: Request) {
   const session = await getAdminSession()
@@ -45,7 +48,7 @@ export async function POST(req: Request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         fullName,
         phone,
@@ -54,6 +57,21 @@ export async function POST(req: Request) {
         passwordHash,
         role: newUserRole,
         status: 'ACTIVE',
+      },
+    })
+
+    void createAuditLog({
+      actorId: session.userId,
+      actorRole: session.role as AuditActorRole,
+      action: AUDIT_ACTIONS.ADMIN_CREATE,
+      entityType: 'admin',
+      entityId: created.id,
+      meta: {
+        adminId: created.id,
+        adminRole: created.role,
+        adminName: created.fullName,
+        adminEmail: created.email,
+        adminPhone: created.phone,
       },
     })
     return NextResponse.json({ success: true })
