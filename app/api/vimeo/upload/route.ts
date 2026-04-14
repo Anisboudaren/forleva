@@ -7,6 +7,7 @@ export const runtime = 'nodejs'
 
 const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024 // 500MB hard limit
 const ALLOWED_MIME_PREFIX = 'video/'
+const MAX_NAME_LENGTH = 120
 
 // Very simple in-memory rate limiting per user (best-effort, not perfect across serverless instances).
 // Limits each teacher to 5 uploads per rolling 10 minutes.
@@ -160,11 +161,19 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file')
-    const name = (formData.get('name') as string | null) ?? 'Course video'
+    const rawName = (formData.get('name') as string | null) ?? 'Course video'
+    const name = rawName.trim().slice(0, MAX_NAME_LENGTH) || 'Course video'
     const courseId = formData.get('courseId') as string | null
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'ملف الفيديو مطلوب' }, { status: 400 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'ملف الفيديو مطلوب',
+          code: 'FILE_REQUIRED',
+        },
+        { status: 400 }
+      )
     }
 
     const size = file.size
@@ -172,13 +181,22 @@ export async function POST(request: NextRequest) {
 
     if (!mime.startsWith(ALLOWED_MIME_PREFIX)) {
       return NextResponse.json(
-        { error: 'يجب أن يكون الملف فيديو صالحاً' },
+        {
+          ok: false,
+          error: 'يجب أن يكون الملف فيديو صالحاً',
+          code: 'INVALID_FILE_TYPE',
+        },
         { status: 400 }
       )
     }
     if (size <= 0 || size > MAX_VIDEO_SIZE_BYTES) {
       return NextResponse.json(
-        { error: 'حجم الفيديو كبير جداً، الرجاء تقليصه' },
+        {
+          ok: false,
+          error: 'حجم الفيديو كبير جداً، الرجاء تقليصه',
+          code: 'FILE_TOO_LARGE',
+          maxSizeBytes: MAX_VIDEO_SIZE_BYTES,
+        },
         { status: 400 }
       )
     }
@@ -216,7 +234,11 @@ export async function POST(request: NextRequest) {
 
       if (!course) {
         return NextResponse.json(
-          { error: 'لم يتم العثور على الدورة' },
+          {
+            ok: false,
+            error: 'لم يتم العثور على الدورة',
+            code: 'COURSE_NOT_FOUND',
+          },
           { status: 404 }
         )
       }
@@ -232,14 +254,25 @@ export async function POST(request: NextRequest) {
     const vimeoId = videoUri.split('/').filter(Boolean).pop() ?? ''
 
     return NextResponse.json({
+      ok: true,
       videoUrl,
       vimeoId,
+      provider: 'vimeo',
+      upload: {
+        name,
+        sizeBytes: size,
+        mimeType: mime,
+      },
       courseId: updatedCourseId,
     })
   } catch (err) {
     console.error('POST /api/vimeo/upload error', err)
     return NextResponse.json(
-      { error: 'فشل رفع الفيديو، حاول مرة أخرى' },
+      {
+        ok: false,
+        error: 'فشل رفع الفيديو، حاول مرة أخرى',
+        code: 'UPLOAD_FAILED',
+      },
       { status: 500 }
     )
   }
