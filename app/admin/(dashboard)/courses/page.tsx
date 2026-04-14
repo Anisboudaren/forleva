@@ -11,7 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { BookOpen, Search, Loader2, CheckCircle2, XCircle, PauseCircle } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, Search, Loader2, CheckCircle2, XCircle, PauseCircle, ExternalLink } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
@@ -225,6 +226,7 @@ export default function AdminCoursesPage() {
                 <TableHead className="text-right">الحالة</TableHead>
                 <TableHead className="text-right">السعر</TableHead>
                 <TableHead className="text-right">التاريخ</TableHead>
+                <TableHead className="text-right">الرابط</TableHead>
                 <TableHead className="text-right">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -244,6 +246,17 @@ export default function AdminCoursesPage() {
                   </TableCell>
                   <TableCell className="text-gray-600">{course.price.toLocaleString()} د.ج</TableCell>
                   <TableCell className="text-gray-600">{formatDate(course.createdAt)}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/courses/${course.id}`}
+                      target="_blank"
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                      aria-label="فتح صفحة الدورة"
+                      title="فتح صفحة الدورة"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {course.status === 'PENDING_REVIEW' && (
                       <div className="flex items-center gap-2">

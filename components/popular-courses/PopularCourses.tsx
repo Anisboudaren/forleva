@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 
+// Fallback (used while loading, and by other demo components).
 export const courses = [
   {
     id: 1,
@@ -81,8 +82,31 @@ export const courses = [
   }
 ]
 
+type ApiCourse = {
+  id: string
+  title: string
+  category: string
+  price: number
+  imageUrl: string | null
+  instructor: string
+}
+
+type CourseCard = {
+  id: string | number
+  title: string
+  instructor: string
+  verified?: boolean
+  recommended?: boolean
+  rating?: number
+  students?: number
+  price: number
+  image: string
+  category: string
+}
+
 export function PopularCourses () {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [realCourses, setRealCourses] = useState<CourseCard[] | null>(null)
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
@@ -97,6 +121,44 @@ export function PopularCourses () {
       scrollContainerRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
     }
   }
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/courses')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ApiCourse[]) => {
+        if (cancelled) return
+        const list = Array.isArray(data) ? data : []
+        const mapped: CourseCard[] = list.map((c) => ({
+          id: c.id,
+          title: c.title,
+          instructor: c.instructor || 'مدرّس',
+          verified: true,
+          recommended: false,
+          // These are not available in current API; hide in UI when missing.
+          rating: undefined,
+          students: undefined,
+          price: c.price,
+          image:
+            c.imageUrl ||
+            'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop',
+          category: c.category,
+        }))
+        setRealCourses(mapped)
+      })
+      .catch(() => {
+        if (!cancelled) setRealCourses([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const listToRender = useMemo(() => {
+    if (realCourses === null) return courses
+    if (realCourses.length === 0) return []
+    return realCourses
+  }, [realCourses])
 
   return (
     <section className='relative bg-white pt-12 pb-0 sm:pt-16 sm:pb-0 lg:pt-20 lg:pb-0'>
@@ -136,7 +198,11 @@ export function PopularCourses () {
                 msOverflowStyle: 'none'
               }}
             >
-              {courses.map((course) => (
+              {listToRender.length === 0 ? (
+                <div className="w-full py-10 text-center text-sm text-gray-600">
+                  لا توجد دورات منشورة حالياً.
+                </div>
+              ) : listToRender.map((course) => (
                 <div
                   key={course.id}
                   className='relative snap-start scroll-mr-6 shrink-0'
@@ -157,18 +223,20 @@ export function PopularCourses () {
                       <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent' />
                       
                       {/* Rating on Image */}
-                      <div className='absolute top-3 right-3 flex flex-col gap-2 items-end'>
-                        <div className='flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20'>
-                          <svg
-                            className='w-4 h-4 text-yellow-400'
-                            fill='currentColor'
-                            viewBox='0 0 20 20'
-                          >
-                            <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                          </svg>
-                          <span className='text-sm font-bold text-white'>{course.rating}</span>
+                      {typeof course.rating === 'number' && (
+                        <div className='absolute top-3 right-3 flex flex-col gap-2 items-end'>
+                          <div className='flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20'>
+                            <svg
+                              className='w-4 h-4 text-yellow-400'
+                              fill='currentColor'
+                              viewBox='0 0 20 20'
+                            >
+                              <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
+                            </svg>
+                            <span className='text-sm font-bold text-white'>{course.rating}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                       
                       {/* Price and Promotion on Image Left */}
                       <div className='absolute bottom-3 left-3 flex flex-col gap-1.5'>

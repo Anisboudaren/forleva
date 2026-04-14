@@ -2,44 +2,163 @@ import { DashboardCard, DashboardContentCard } from "@/components/dashboard/Dash
 import { BookOpen, Clock, Award, TrendingUp, CheckCircle2, PlayCircle, Play } from "lucide-react"
 import Image from "next/image"
 import { GradientText } from "@/components/text/gradient-text"
+import Link from "next/link"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
+import { formatRelativeAr } from "@/lib/format-date"
 
-export default function StudentDashboard() {
-  // Mock data - replace with real data later
-  const stats = {
-    enrolledCourses: 8,
-    completedCourses: 3,
-    inProgressCourses: 5,
-    certificates: 2,
-    studyStreak: 12,
-    totalHours: 45,
+function parseDurationToMinutes(duration: string | null | undefined): number {
+  if (!duration) return 0
+  const m = duration.match(/(\d+)/)
+  const n = m ? Number(m[1]) : 0
+  if (!Number.isFinite(n) || n <= 0) return 0
+  if (duration.includes("ساعة") || duration.includes("ساع")) return n * 60
+  if (duration.includes("دقيقة") || duration.includes("دق")) return n
+  return 0
+}
+
+function dayKey(d: Date) {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function computeStreak(activityKeys: Set<string>) {
+  let streak = 0
+  const cur = new Date()
+  for (;;) {
+    const key = dayKey(cur)
+    if (!activityKeys.has(key)) break
+    streak += 1
+    cur.setDate(cur.getDate() - 1)
+  }
+  return streak
+}
+
+export default async function StudentDashboard() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "STUDENT") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للطلاب فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب طالب لعرض لوحة التحكم.</p>
+      </div>
+    )
   }
 
-  const recentCourses = [
-    {
-      id: 1,
-      name: "مقدمة في البرمجة",
-      progress: 65,
-      lastAccessed: "منذ ساعتين",
-      nextLesson: "الدرس 8: المصفوفات",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-    },
-    {
-      id: 2,
-      name: "تصميم واجهات المستخدم",
-      progress: 40,
-      lastAccessed: "أمس",
-      nextLesson: "الدرس 5: CSS المتقدم",
-      image: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=300&fit=crop",
-    },
-    {
-      id: 3,
-      name: "قواعد البيانات",
-      progress: 90,
-      lastAccessed: "منذ 3 أيام",
-      nextLesson: "الدرس الأخير",
-      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
-    },
-  ]
+  const confirmedOrders = await prisma.order.findMany({
+    where: { userId: session.userId, status: "CONFIRMED" },
+    select: { courseId: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  })
+  const courseIds = Array.from(new Set(confirmedOrders.map((o) => o.courseId)))
+
+  const [courses, progressRows] = await Promise.all([
+    prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        imageUrl: true,
+        teacher: { select: { fullName: true } },
+        sections: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            position: true,
+            title: true,
+            items: {
+              orderBy: { position: "asc" },
+              select: { id: true, title: true, duration: true, type: true, position: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.courseItemProgress.findMany({
+      where: { userId: session.userId, courseId: { in: courseIds } },
+      select: {
+        courseId: true,
+        itemId: true,
+        lastViewedAt: true,
+        completedAt: true,
+        updatedAt: true,
+      },
+    }),
+  ])
+
+  const completedByCourse = new Map<string, Set<string>>()
+  const lastActivityByCourse = new Map<string, Date>()
+  const activityDayKeys = new Set<string>()
+
+  for (const p of progressRows) {
+    const t = p.lastViewedAt ?? p.completedAt ?? p.updatedAt
+    activityDayKeys.add(dayKey(t))
+    const prev = lastActivityByCourse.get(p.courseId)
+    if (!prev || t.getTime() > prev.getTime()) lastActivityByCourse.set(p.courseId, t)
+    if (p.completedAt) {
+      const set = completedByCourse.get(p.courseId) ?? new Set<string>()
+      set.add(p.itemId)
+      completedByCourse.set(p.courseId, set)
+    }
+  }
+
+  const recentCourses = courses
+    .map((c) => {
+      const flatItems = c.sections.flatMap((s) => s.items)
+      const totalItems = flatItems.length
+      const completedSet = completedByCourse.get(c.id) ?? new Set<string>()
+      const completedItems = completedSet.size
+      const progressPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+      const nextItem = flatItems.find((i) => !completedSet.has(i.id))
+      const lastAt = lastActivityByCourse.get(c.id) ?? null
+      return {
+        id: c.id,
+        name: c.title,
+        progress: progressPct,
+        lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
+        nextLesson: nextItem ? nextItem.title : "مكتملة",
+        image:
+          c.imageUrl ||
+          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        totalItems,
+        completedItems,
+        completed: totalItems > 0 && completedItems === totalItems,
+        inProgress: completedItems > 0 && completedItems < totalItems,
+        completedMinutes: flatItems
+          .filter((i) => completedSet.has(i.id))
+          .reduce((acc, i) => acc + parseDurationToMinutes(i.duration), 0),
+      }
+    })
+    .sort((a, b) => {
+      const aHas = a.lastAccessed !== "لم تبدأ بعد"
+      const bHas = b.lastAccessed !== "لم تبدأ بعد"
+      if (aHas && !bHas) return -1
+      if (!aHas && bHas) return 1
+      const aT = lastActivityByCourse.get(a.id)?.getTime() ?? 0
+      const bT = lastActivityByCourse.get(b.id)?.getTime() ?? 0
+      return bT - aT
+    })
+
+  const enrolledCourses = courseIds.length
+  const completedCourses = recentCourses.filter((c) => c.completed).length
+  const inProgressCourses = recentCourses.filter((c) => c.inProgress).length
+  const certificates = 0
+  const totalMinutes = recentCourses.reduce((acc, c) => acc + c.completedMinutes, 0)
+  const totalHours = Math.round(totalMinutes / 60)
+  const studyStreak = computeStreak(activityDayKeys)
+
+  const stats = {
+    enrolledCourses,
+    completedCourses,
+    inProgressCourses,
+    certificates,
+    studyStreak,
+    totalHours,
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -74,7 +193,9 @@ export default function StudentDashboard() {
           value={stats.completedCourses}
           description={
             <span>
-              {Math.round((stats.completedCourses / stats.enrolledCourses) * 100)}% معدل الإتمام
+              {stats.enrolledCourses > 0
+                ? `${Math.round((stats.completedCourses / stats.enrolledCourses) * 100)}% معدل الإتمام`
+                : "—"}
             </span>
           }
         />
@@ -112,7 +233,12 @@ export default function StudentDashboard() {
         icon={PlayCircle}
       >
           <div className="space-y-4">
-            {recentCourses.map((course) => (
+            {recentCourses.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-600">لا توجد دورات مؤكدة بعد.</p>
+                <p className="text-xs text-gray-500 mt-1">عند تأكيد اشتراكك ستظهر الدورات هنا.</p>
+              </div>
+            ) : recentCourses.map((course) => (
               <div key={course.id} className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300">
                 <div className="flex flex-col md:flex-row gap-3 md:gap-4 p-3 md:p-6 md:min-h-[180px]">
                   {/* Course Image */}
@@ -161,12 +287,13 @@ export default function StudentDashboard() {
                     {/* Continue Button */}
                     <div className="relative inline-flex items-center justify-center w-full md:w-fit group">
                       <div className="absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-yellow-400 to-yellow-600 group-hover:shadow-lg group-hover:shadow-yellow-500/50" />
-                      <button
+                      <Link
+                        href={`/dashboard/student/learning/${course.id}`}
                         className="relative inline-flex items-center justify-center gap-2 w-full md:w-fit px-6 py-3 text-base font-semibold text-white rounded-full transition-all duration-200"
                       >
                         <Play className="h-4 w-4" />
                         <span>استمر في التعلم</span>
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -209,9 +336,11 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">متوسط التقدم</span>
               <span className="font-semibold text-gray-900">
-                {Math.round(
-                  recentCourses.reduce((acc, c) => acc + c.progress, 0) / recentCourses.length
-                )}%
+                {recentCourses.length > 0
+                  ? `${Math.round(
+                      recentCourses.reduce((acc, c) => acc + c.progress, 0) / recentCourses.length
+                    )}%`
+                  : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">

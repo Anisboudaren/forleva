@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { SafeCourseImage } from '@/components/safe-course-image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { PopularCourses } from '@/components/popular-courses/PopularCourses'
@@ -14,6 +13,10 @@ import {
   HelpCircle, Loader2, Star
 } from 'lucide-react'
 import { motion } from 'motion/react'
+import {
+  EMPTY_SALES_PAGE_DATA,
+  type SalesPageData,
+} from '@/lib/course-sales'
 
 const lessonTypes: Record<string, { icon: typeof Play; label: string; color: string }> = {
   VIDEO: { icon: Play, label: 'فيديو', color: 'text-red-500' },
@@ -66,6 +69,7 @@ type CourseData = {
   language: string | null
   description: string | null
   learningOutcomes: string[]
+  salesPageData?: SalesPageData | null
   teacher: { id: string; fullName: string } | null
   sections: CourseSection[]
 }
@@ -82,8 +86,47 @@ type CourseReview = {
   userName: string
 }
 
+type CourseQuestion = {
+  id: string
+  content: string
+  createdAt: string
+  userName: string
+  replies: Array<{ id: string; content: string; createdAt: string; userName: string }>
+}
+
 function formatPrice(price: number) {
   return `${price.toLocaleString()} د.ج`
+}
+
+function getFallbackSalesData(course: CourseData): SalesPageData {
+  return {
+    hook: {
+      title: `حوّل مهاراتك في ${course.category} إلى مستوى أعلى`,
+      description:
+        course.description ??
+        'برنامج عملي ومباشر يساعدك على التعلم بسرعة، التطبيق بثقة، والوصول إلى نتائج واضحة.',
+    },
+    cta: {
+      primaryText: 'اشترك الآن وابدأ التعلم',
+      secondaryText: 'انضم اليوم واستفد من المحتوى خطوة بخطوة',
+      urgencyNote: 'المقاعد محدودة لضمان متابعة أفضل لكل طالب',
+    },
+    formationInfo: [
+      { title: 'التصنيف', value: course.category },
+      { title: 'المستوى', value: course.level ?? 'جميع المستويات' },
+      { title: 'اللغة', value: course.language ?? 'العربية' },
+      { title: 'المدة', value: course.duration ?? 'حسب تقدمك' },
+    ],
+    socialProof: [],
+    beforeAfter: [
+      { before: 'تشتت وعدم وضوح المسار', after: 'خطة واضحة وتطبيق عملي منظم' },
+      { before: 'معلومات متفرقة بدون نتيجة', after: 'فهم أعمق ومخرجات قابلة للتنفيذ' },
+    ],
+    bonuses: [
+      { title: 'ملخصات جاهزة', description: 'ملخصات مركزة لكل جزء لتثبيت التعلم بسرعة.', type: 'free' },
+      { title: 'تحديثات مستقبلية', description: 'وصول لأي تحسينات أو إضافات جديدة على نفس الدورة.', type: 'free' },
+    ],
+  }
 }
 
 function youtubeWatchToEmbed(url: string | undefined): string | null {
@@ -113,6 +156,12 @@ export default function CoursePage() {
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewError, setReviewError] = useState<string | null>(null)
+  const [questions, setQuestions] = useState<CourseQuestion[]>([])
+  const [questionsLoading, setQuestionsLoading] = useState(false)
+  const [questionText, setQuestionText] = useState("")
+  const [questionSubmitting, setQuestionSubmitting] = useState(false)
+  const [replyTextByQuestion, setReplyTextByQuestion] = useState<Record<string, string>>({})
+  const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) {
@@ -263,6 +312,62 @@ export default function CoursePage() {
       .finally(() => setReviewSubmitting(false))
   }
 
+  const fetchQuestions = () => {
+    if (!id) return
+    setQuestionsLoading(true)
+    fetch(`/api/courses/${encodeURIComponent(id)}/questions`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CourseQuestion[]) => setQuestions(Array.isArray(data) ? data : []))
+      .catch(() => setQuestions([]))
+      .finally(() => setQuestionsLoading(false))
+  }
+
+  useEffect(() => {
+    fetchQuestions()
+  }, [id])
+
+  const submitQuestion = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || questionSubmitting || questionText.trim().length < 2) return
+    setQuestionSubmitting(true)
+    fetch(`/api/courses/${encodeURIComponent(id)}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ content: questionText.trim() }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((d) => { throw new Error(d?.error || 'فشل الإرسال') })
+      })
+      .then(() => {
+        setQuestionText('')
+        fetchQuestions()
+      })
+      .catch(() => {})
+      .finally(() => setQuestionSubmitting(false))
+  }
+
+  const submitReply = (questionId: string) => {
+    const content = (replyTextByQuestion[questionId] ?? '').trim()
+    if (!id || !content || replySubmittingId) return
+    setReplySubmittingId(questionId)
+    fetch(`/api/courses/${encodeURIComponent(id)}/questions/replies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ questionId, content }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((d) => { throw new Error(d?.error || 'فشل الإرسال') })
+      })
+      .then(() => {
+        setReplyTextByQuestion((prev) => ({ ...prev, [questionId]: '' }))
+        fetchQuestions()
+      })
+      .catch(() => {})
+      .finally(() => setReplySubmittingId(null))
+  }
+
   const introEmbedUrl = useMemo(() => {
     if (!course?.sections?.length) return null
     for (const sec of course.sections) {
@@ -309,6 +414,23 @@ export default function CoursePage() {
   }
 
   const instructorName = course.teacher?.fullName ?? 'مدرّس'
+  const salesPageData = (() => {
+    const data = course.salesPageData ?? EMPTY_SALES_PAGE_DATA
+    const hasContent =
+      data.hook.title ||
+      data.hook.description ||
+      data.cta.primaryText ||
+      data.cta.secondaryText ||
+      data.cta.urgencyNote ||
+      data.formationInfo.length > 0 ||
+      data.socialProof.length > 0 ||
+      data.beforeAfter.length > 0 ||
+      data.bonuses.length > 0
+    return hasContent ? data : getFallbackSalesData(course)
+  })()
+  const hookTitle = salesPageData.hook.title || course.title
+  const hookDescription = salesPageData.hook.description || course.description
+  const primaryCtaText = salesPageData.cta.primaryText || 'اشترك الآن'
 
   return (
     <main className='bg-white pt-20 sm:pt-24 md:pt-28 lg:pt-24' dir='rtl'>
@@ -332,8 +454,13 @@ export default function CoursePage() {
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
             <div className='lg:col-span-8'>
               <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4'>
-                <GradientText text={course.title} gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+                <GradientText text={hookTitle} gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
               </h1>
+              {hookDescription && (
+                <p className='text-base sm:text-lg text-gray-700 mb-5 whitespace-pre-wrap'>
+                  {hookDescription}
+                </p>
+              )}
               <div className='flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-6'>
                 {course.level && <span>{course.level}</span>}
                 {course.duration && (
@@ -348,19 +475,6 @@ export default function CoursePage() {
                     <span>{course.language}</span>
                   </>
                 )}
-              </div>
-
-              <div className='mb-6 rounded-2xl overflow-hidden shadow-lg border border-gray-200'>
-                <SafeCourseImage
-                  className='w-full h-auto object-cover'
-                  src={course.imageUrl}
-                  alt={course.title}
-                  width={1920}
-                  height={960}
-                  sizes='(min-width: 1280px) 896px, (min-width: 1024px) 75vw, 100vw'
-                  quality={95}
-                  priority
-                />
               </div>
 
               {course.videoUrl && isMuxPlaybackUrl(course.videoUrl) && (
@@ -428,7 +542,7 @@ export default function CoursePage() {
                       onClick={() => setEnrollOpen(true)}
                       className='w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white py-3 font-bold shadow-[0_10px_25px_rgba(217,119,6,0.45)] hover:brightness-105 transition-all mb-4'
                     >
-                      اشترك الآن
+                      {primaryCtaText}
                     </button>
                     <EnrollDialog
                       open={enrollOpen}
@@ -439,6 +553,16 @@ export default function CoursePage() {
                         setOrderStatus('PENDING')
                       }}
                     />
+                    {salesPageData.cta.secondaryText && (
+                      <p className='text-sm text-gray-700 text-center mb-2'>
+                        {salesPageData.cta.secondaryText}
+                      </p>
+                    )}
+                    {salesPageData.cta.urgencyNote && (
+                      <p className='text-xs text-amber-700 text-center mb-4 font-medium'>
+                        {salesPageData.cta.urgencyNote}
+                      </p>
+                    )}
                   </>
                 )}
                 <ul className='space-y-3 text-sm text-gray-700 border-t border-gray-200 pt-4'>
@@ -476,6 +600,25 @@ export default function CoursePage() {
                 </motion.div>
               )}
 
+              {salesPageData.formationInfo.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                >
+                  <h2 className='text-xl font-bold text-gray-900 mb-4'>معلومات الدورة</h2>
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                    {salesPageData.formationInfo.map((item, idx) => (
+                      <div key={`${item.title}-${idx}`} className='rounded-xl border border-gray-100 bg-gray-50/60 p-4'>
+                        <p className='text-xs text-gray-500 mb-1 font-medium'>{item.title}</p>
+                        <p className='text-sm font-semibold text-gray-900 leading-6'>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               {course.learningOutcomes?.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -492,6 +635,57 @@ export default function CoursePage() {
                       </li>
                     ))}
                   </ul>
+                </motion.div>
+              )}
+
+              {salesPageData.beforeAfter.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                >
+                  <h2 className='text-xl font-bold text-gray-900 mb-4'>النتيجة قبل وبعد</h2>
+                  <div className='space-y-3'>
+                    {salesPageData.beforeAfter.map((item, idx) => (
+                      <div key={`${item.before}-${idx}`} className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                        <div className='rounded-xl bg-slate-50 border border-slate-200 p-4'>
+                          <p className='text-xs text-slate-600 mb-1 font-medium'>قبل</p>
+                          <p className='text-sm text-gray-800 leading-6'>{item.before}</p>
+                        </div>
+                        <div className='rounded-xl bg-emerald-50/60 border border-emerald-200 p-4'>
+                          <p className='text-xs text-emerald-700 mb-1 font-medium'>بعد</p>
+                          <p className='text-sm text-gray-800 leading-6'>{item.after}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {salesPageData.bonuses.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.18 }}
+                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                >
+                  <h2 className='text-xl font-bold text-gray-900 mb-4'>البونصات</h2>
+                  <div className='space-y-3'>
+                    {salesPageData.bonuses.map((bonus, idx) => (
+                      <div key={`${bonus.title}-${idx}`} className='rounded-xl border border-gray-200 bg-white p-4'>
+                        <div className='flex items-start justify-between gap-3 mb-2'>
+                          <p className='font-semibold text-gray-900'>{bonus.title}</p>
+                          <span className={`text-xs px-2 py-1 rounded-full ${bonus.type === 'paid' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {bonus.type === 'paid' ? `مدفوع${bonus.price ? ` - ${formatPrice(bonus.price)}` : ''}` : 'مجاني'}
+                          </span>
+                        </div>
+                        {bonus.description && (
+                          <p className='text-sm text-gray-700 leading-6'>{bonus.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               )}
 
@@ -559,10 +753,63 @@ export default function CoursePage() {
                   <MessageSquare className='w-6 h-6 text-amber-600' />
                   الأسئلة والأجوبة
                 </h2>
-                <p className='text-sm text-gray-600 mb-4'>مكان طرح والإجابة على الأسئلة بالكتابة، الصور، والصوت</p>
-                <button className='w-full py-2.5 text-sm font-semibold text-amber-600 border-2 border-amber-300 rounded-lg hover:bg-amber-50 transition-colors'>
-                  طرح سؤال جديد
-                </button>
+                <p className='text-sm text-gray-600 mb-4'>اسأل عن أي نقطة في الدورة واحصل على ردود من المدرّس أو الطلاب.</p>
+                <form onSubmit={submitQuestion} className='space-y-2 mb-4'>
+                  <textarea
+                    value={questionText}
+                    onChange={(e) => setQuestionText(e.target.value)}
+                    placeholder='اكتب سؤالك...'
+                    rows={3}
+                    className='w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500'
+                  />
+                  <button
+                    type='submit'
+                    disabled={questionSubmitting || questionText.trim().length < 2}
+                    className='w-full py-2.5 text-sm font-semibold text-amber-700 border-2 border-amber-300 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50'
+                  >
+                    {questionSubmitting ? 'جارٍ الإرسال...' : 'طرح سؤال جديد'}
+                  </button>
+                </form>
+                <div className='space-y-3'>
+                  {questionsLoading ? (
+                    <div className='text-sm text-gray-500'>جارٍ تحميل الأسئلة...</div>
+                  ) : questions.length === 0 ? (
+                    <div className='text-sm text-gray-500'>لا توجد أسئلة بعد.</div>
+                  ) : (
+                    questions.map((q) => (
+                      <div key={q.id} className='border border-gray-200 rounded-lg p-3'>
+                        <p className='text-sm font-semibold text-gray-900'>{q.userName}</p>
+                        <p className='text-sm text-gray-700 mt-1'>{q.content}</p>
+                        <div className='mt-3 space-y-2'>
+                          {q.replies.map((r) => (
+                            <div key={r.id} className='bg-gray-50 rounded p-2 text-sm'>
+                              <span className='font-medium text-gray-800'>{r.userName}: </span>
+                              <span className='text-gray-700'>{r.content}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className='mt-2 flex gap-2'>
+                          <input
+                            value={replyTextByQuestion[q.id] ?? ''}
+                            onChange={(e) =>
+                              setReplyTextByQuestion((prev) => ({ ...prev, [q.id]: e.target.value }))
+                            }
+                            placeholder='اكتب ردك...'
+                            className='flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg'
+                          />
+                          <button
+                            type='button'
+                            onClick={() => submitReply(q.id)}
+                            disabled={replySubmittingId === q.id || !(replyTextByQuestion[q.id] ?? '').trim()}
+                            className='px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg disabled:opacity-50'
+                          >
+                            رد
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </motion.div>
             </div>
 
@@ -600,6 +847,32 @@ export default function CoursePage() {
             </h2>
             <p className='text-gray-600'>مقتطفات من تعليقات حقيقية حول محتوى الدورة وجودته</p>
           </div>
+
+          {salesPageData.socialProof.length > 0 && (
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-8'>
+              {salesPageData.socialProof.map((item, idx) => (
+                <div key={`${item.name}-${idx}`} className='rounded-2xl border border-amber-100 bg-amber-50/40 p-5'>
+                  <div className='flex items-start justify-between gap-3 mb-2'>
+                    <div>
+                      <p className='font-semibold text-gray-900'>{item.name}</p>
+                      <p className='text-xs text-gray-600'>{item.role}</p>
+                    </div>
+                    {item.rating && (
+                      <div className='flex gap-0.5' dir='ltr'>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${i <= item.rating! ? 'fill-amber-500 text-amber-500' : 'fill-gray-200 text-gray-200'}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className='text-sm text-gray-700 leading-relaxed'>{item.quote}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {!session && reviewChecked && (
             <motion.div

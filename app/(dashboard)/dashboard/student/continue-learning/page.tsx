@@ -3,43 +3,97 @@ import { PlayCircle, Clock, BookOpen, Play } from "lucide-react"
 import Image from "next/image"
 import { GradientText } from "@/components/text/gradient-text"
 import Link from "next/link"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
+import { formatRelativeAr } from "@/lib/format-date"
 
-export default function ContinueLearningPage() {
-  const courses = [
-    {
-      id: 1,
-      name: "مقدمة في البرمجة",
-      nextLesson: "الدرس 8: المصفوفات",
-      progress: 65,
-      lastAccessed: "منذ ساعتين",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-      duration: "15 دقيقة",
-      lessonNumber: 8,
-      totalLessons: 24,
-    },
-    {
-      id: 2,
-      name: "تصميم واجهات المستخدم",
-      nextLesson: "الدرس 5: CSS المتقدم",
-      progress: 40,
-      lastAccessed: "أمس",
-      image: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=300&fit=crop",
-      duration: "20 دقيقة",
-      lessonNumber: 5,
-      totalLessons: 30,
-    },
-    {
-      id: 3,
-      name: "React للمحترفين",
-      nextLesson: "الدرس 3: Hooks المتقدمة",
-      progress: 25,
-      lastAccessed: "منذ 3 أيام",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-      duration: "25 دقيقة",
-      lessonNumber: 3,
-      totalLessons: 32,
-    },
-  ]
+export default async function ContinueLearningPage() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "STUDENT") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للطلاب فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب طالب لعرض دوراتك.</p>
+      </div>
+    )
+  }
+
+  const confirmedOrders = await prisma.order.findMany({
+    where: { userId: session.userId, status: "CONFIRMED" },
+    select: { courseId: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  })
+  const courseIds = Array.from(new Set(confirmedOrders.map((o) => o.courseId)))
+
+  const [courses, progressRows] = await Promise.all([
+    prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: {
+        id: true,
+        title: true,
+        imageUrl: true,
+        sections: {
+          orderBy: { position: "asc" },
+          select: {
+            position: true,
+            items: {
+              orderBy: { position: "asc" },
+              select: { id: true, title: true, duration: true, position: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.courseItemProgress.findMany({
+      where: { userId: session.userId, courseId: { in: courseIds } },
+      select: { courseId: true, itemId: true, completedAt: true, lastViewedAt: true, updatedAt: true },
+    }),
+  ])
+
+  const completedByCourse = new Map<string, Set<string>>()
+  const lastByCourse = new Map<string, Date>()
+  for (const p of progressRows) {
+    const t = p.lastViewedAt ?? p.completedAt ?? p.updatedAt
+    const prev = lastByCourse.get(p.courseId)
+    if (!prev || t.getTime() > prev.getTime()) lastByCourse.set(p.courseId, t)
+    if (p.completedAt) {
+      const set = completedByCourse.get(p.courseId) ?? new Set<string>()
+      set.add(p.itemId)
+      completedByCourse.set(p.courseId, set)
+    }
+  }
+
+  const mappedCourses = courses
+    .map((c) => {
+      const flatItems = c.sections.flatMap((s) => s.items)
+      const totalLessons = flatItems.length
+      const completedSet = completedByCourse.get(c.id) ?? new Set<string>()
+      const completedLessons = completedSet.size
+      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+      const nextItem = flatItems.find((i) => !completedSet.has(i.id)) ?? null
+      const lastAt = lastByCourse.get(c.id) ?? null
+      return {
+        id: c.id,
+        name: c.title,
+        nextLesson: nextItem ? nextItem.title : "مكتملة",
+        progress,
+        lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
+        image:
+          c.imageUrl ||
+          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        duration: nextItem?.duration ?? "—",
+        lessonNumber: Math.min(completedLessons + 1, Math.max(totalLessons, 1)),
+        totalLessons,
+        isCompleted: totalLessons > 0 && completedLessons === totalLessons,
+      }
+    })
+    .filter((c) => !c.isCompleted)
+    .sort((a, b) => {
+      const aT = lastByCourse.get(a.id)?.getTime() ?? 0
+      const bT = lastByCourse.get(b.id)?.getTime() ?? 0
+      return bT - aT
+    })
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -60,7 +114,11 @@ export default function ContinueLearningPage() {
         icon={PlayCircle}
       >
         <div className="space-y-4">
-          {courses.map((course) => (
+          {mappedCourses.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-600">لا توجد دورات قيد التعلّم حالياً.</p>
+            </div>
+          ) : mappedCourses.map((course) => (
             <div
               key={course.id}
               className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300"
@@ -117,7 +175,7 @@ export default function ContinueLearningPage() {
                   <div className="relative inline-flex items-center justify-center w-full md:w-fit group/btn">
                     <div className="absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-yellow-400 to-yellow-600 group-hover/btn:shadow-lg group-hover/btn:shadow-yellow-500/50" />
                     <Link
-                      href={`/courses/${course.id}/lesson/${course.lessonNumber}`}
+                      href={`/dashboard/student/learning/${course.id}`}
                       className="relative inline-flex items-center justify-center gap-2 w-full md:w-fit px-6 py-3 text-base font-semibold text-white rounded-full transition-all duration-200"
                     >
                       <Play className="h-4 w-4" />
@@ -134,19 +192,23 @@ export default function ContinueLearningPage() {
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <DashboardContentCard title="الدورات النشطة" icon={BookOpen}>
-          <div className="text-3xl font-bold text-gray-900">{courses.length}</div>
+          <div className="text-3xl font-bold text-gray-900">{mappedCourses.length}</div>
           <p className="text-sm text-gray-600 mt-1">دورة قيد التعلم</p>
         </DashboardContentCard>
         
         <DashboardContentCard title="متوسط التقدم" icon={PlayCircle}>
           <div className="text-3xl font-bold text-gray-900">
-            {Math.round(courses.reduce((acc, c) => acc + c.progress, 0) / courses.length)}%
+            {mappedCourses.length > 0
+              ? `${Math.round(mappedCourses.reduce((acc, c) => acc + c.progress, 0) / mappedCourses.length)}%`
+              : "—"}
           </div>
           <p className="text-sm text-gray-600 mt-1">من جميع الدورات</p>
         </DashboardContentCard>
         
         <DashboardContentCard title="آخر نشاط" icon={Clock}>
-          <div className="text-lg font-bold text-gray-900">منذ ساعتين</div>
+          <div className="text-lg font-bold text-gray-900">
+            {mappedCourses[0]?.lastAccessed ?? "—"}
+          </div>
           <p className="text-sm text-gray-600 mt-1">آخر مرة درست فيها</p>
         </DashboardContentCard>
       </div>

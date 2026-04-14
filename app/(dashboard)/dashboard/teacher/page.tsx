@@ -1,23 +1,117 @@
 import { DashboardCard, DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { TrendingUp, Users, BookOpen, Star, ShoppingBag, Eye } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
 
-export default function TeacherDashboard() {
-  // Mock data - replace with real data later
-  const stats = {
-    totalCourses: 24,
-    totalPurchases: 1247,
-    totalReviews: 892,
-    avgRating: 4.8,
-    bestPerformingCourse: {
-      name: "مقدمة في البرمجة",
-      purchases: 342,
-      reviews: 156,
-      rating: 4.9,
-    },
-    recentPurchases: 127,
-    totalRevenue: 62470,
+function formatCurrencyDZD(amount: number) {
+  return `${Math.round(amount).toLocaleString()} د.ج`
+}
+
+export default async function TeacherDashboard() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "TEACHER") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للمدرسين فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب مدرس لعرض لوحة التحكم.</p>
+      </div>
+    )
   }
+
+  const now = new Date()
+  const since = new Date(now)
+  since.setDate(now.getDate() - 7)
+
+  const [
+    totalCourses,
+    salesAggAll,
+    salesAgg7d,
+    reviewsAgg,
+    topByRevenue,
+  ] = await Promise.all([
+    prisma.course.count({ where: { teacherId: session.userId } }),
+    prisma.order.aggregate({
+      where: {
+        status: "CONFIRMED",
+        course: { teacherId: session.userId },
+      },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+    prisma.order.aggregate({
+      where: {
+        status: "CONFIRMED",
+        createdAt: { gte: since },
+        course: { teacherId: session.userId },
+      },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+    prisma.review.aggregate({
+      where: { course: { teacherId: session.userId } },
+      _count: { _all: true },
+      _avg: { rating: true },
+    }),
+    prisma.order.groupBy({
+      by: ["courseId"],
+      where: { status: "CONFIRMED", course: { teacherId: session.userId } },
+      _count: { _all: true },
+      _sum: { amount: true },
+      orderBy: { _sum: { amount: "desc" } },
+      take: 1,
+    }),
+  ])
+
+  const totalPurchases = salesAggAll._count._all
+  const totalRevenue = salesAggAll._sum.amount ?? 0
+  const recentPurchases = salesAgg7d._count._all
+
+  const totalReviews = reviewsAgg._count._all
+  const avgRating = reviewsAgg._avg.rating ?? 0
+
+  let bestPerformingCourse: {
+    name: string
+    purchases: number
+    reviews: number
+    rating: number
+  } | null = null
+
+  const bestCourseId = topByRevenue?.[0]?.courseId
+  if (bestCourseId) {
+    const [course, courseReviewsAgg] = await Promise.all([
+      prisma.course.findFirst({
+        where: { id: bestCourseId, teacherId: session.userId },
+        select: { title: true },
+      }),
+      prisma.review.aggregate({
+        where: { courseId: bestCourseId, course: { teacherId: session.userId } },
+        _count: { _all: true },
+        _avg: { rating: true },
+      }),
+    ])
+
+    bestPerformingCourse = {
+      name: course?.title ?? "—",
+      purchases: topByRevenue[0]?._count._all ?? 0,
+      reviews: courseReviewsAgg._count._all,
+      rating: courseReviewsAgg._avg.rating ?? 0,
+    }
+  }
+
+  const satisfactionPercent =
+    totalReviews > 0
+      ? Math.round(
+          ((await prisma.review.count({
+            where: { course: { teacherId: session.userId }, rating: 5 },
+          })) /
+            totalReviews) *
+            100
+        )
+      : 0
+
+  const avgSalesPerDay = Math.round(recentPurchases / 7)
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -37,11 +131,10 @@ export default function TeacherDashboard() {
           variant="blue"
           icon={BookOpen}
           title="إجمالي الدورات"
-          value={stats.totalCourses}
+          value={totalCourses}
           description={
             <span className="inline-flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              +12% من الشهر الماضي
+              آخر 7 أيام
             </span>
           }
         />
@@ -50,11 +143,10 @@ export default function TeacherDashboard() {
           variant="green"
           icon={ShoppingBag}
           title="إجمالي المبيعات"
-          value={stats.totalPurchases.toLocaleString()}
+          value={totalPurchases.toLocaleString()}
           description={
             <span className="inline-flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              +23% من الشهر الماضي
+              {recentPurchases.toLocaleString()} في آخر 7 أيام
             </span>
           }
         />
@@ -63,19 +155,18 @@ export default function TeacherDashboard() {
           variant="yellow"
           icon={Star}
           title="إجمالي التقييمات"
-          value={stats.totalReviews.toLocaleString()}
-          description={`متوسط التقييم: ${stats.avgRating}`}
+          value={totalReviews.toLocaleString()}
+          description={`متوسط التقييم: ${totalReviews > 0 ? avgRating.toFixed(1) : "—"}`}
         />
         
         <DashboardCard
           variant="purple"
           icon={TrendingUp}
           title="إجمالي الإيرادات"
-          value={`${stats.totalRevenue.toLocaleString()} د.ج`}
+          value={formatCurrencyDZD(totalRevenue)}
           description={
             <span className="inline-flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              +18% من الشهر الماضي
+              {formatCurrencyDZD(salesAgg7d._sum.amount ?? 0)} في آخر 7 أيام
             </span>
           }
         />
@@ -88,46 +179,56 @@ export default function TeacherDashboard() {
         icon={TrendingUp}
       >
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {stats.bestPerformingCourse.name}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  أكثر دورة تحظى بشعبية بين طلابك
-                </p>
+            {!bestPerformingCourse ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-600">لا توجد مبيعات مؤكدة بعد.</p>
               </div>
-              <div className="flex items-center gap-2 text-amber-600">
-                <Star className="h-5 w-5 fill-amber-600" />
-                <span className="text-xl font-bold">{stats.bestPerformingCourse.rating}</span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {bestPerformingCourse.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      الأكثر تحقيقاً للإيراد (مبيعات مؤكدة)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Star className="h-5 w-5 fill-amber-600" />
+                    <span className="text-xl font-bold">
+                      {bestPerformingCourse.reviews > 0 ? bestPerformingCourse.rating.toFixed(1) : "—"}
+                    </span>
+                  </div>
+                </div>
             
-            <div className="grid gap-4 md:grid-cols-2 pt-4 border-t">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-100">
-                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                <div className="grid gap-4 md:grid-cols-2 pt-4 border-t">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-blue-100">
+                      <ShoppingBag className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">عدد المبيعات</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {bestPerformingCourse.purchases}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-purple-100">
+                      <Star className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">عدد التقييمات</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {bestPerformingCourse.reviews}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">عدد المبيعات</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.bestPerformingCourse.purchases}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-purple-100">
-                  <Star className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">عدد التقييمات</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.bestPerformingCourse.reviews}
-                  </p>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
       </DashboardContentCard>
 
@@ -138,10 +239,10 @@ export default function TeacherDashboard() {
           icon={Users}
         >
           <div className="text-3xl font-bold text-gray-900">
-            {stats.recentPurchases}
+            {recentPurchases}
           </div>
           <p className="text-sm text-gray-600 mt-2">
-            عدد المشتريات في آخر 30 يوماً
+            عدد المشتريات في آخر 7 أيام
           </p>
         </DashboardContentCard>
 
@@ -152,15 +253,15 @@ export default function TeacherDashboard() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">متوسط المبيعات يومياً</span>
-              <span className="font-semibold text-gray-900">42</span>
+              <span className="font-semibold text-gray-900">{avgSalesPerDay}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">نسبة الإتمام</span>
-              <span className="font-semibold text-gray-900">78%</span>
+              <span className="text-sm text-gray-600">متوسط التقييم</span>
+              <span className="font-semibold text-gray-900">{totalReviews > 0 ? avgRating.toFixed(1) : "—"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">معدل الرضا</span>
-              <span className="font-semibold text-green-600">94%</span>
+              <span className="font-semibold text-green-600">{totalReviews > 0 ? `${satisfactionPercent}%` : "—"}</span>
             </div>
           </div>
         </DashboardContentCard>

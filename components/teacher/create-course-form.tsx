@@ -33,8 +33,17 @@ import {
   Edit,
   File,
   Layers,
+  Star,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  EMPTY_SALES_PAGE_DATA,
+  type SalesPageData,
+  type FormationInfoItem,
+  type SocialProofItem,
+  type BeforeAfterItem,
+  type BonusItem,
+} from '@/lib/course-sales'
 
 export type ContentType =
   | 'video'
@@ -86,6 +95,7 @@ export interface CourseFormData {
   language: string
   description: string
   learningOutcomes: string[]
+  salesPageData: SalesPageData
   sections: Section[]
 }
 
@@ -554,7 +564,29 @@ const defaultFormData: CourseFormData = {
   language: 'العربية',
   description: '',
   learningOutcomes: [''],
+  salesPageData: EMPTY_SALES_PAGE_DATA,
   sections: [],
+}
+
+function withSalesDefaults(data: CourseFormData): CourseFormData {
+  return {
+    ...data,
+    salesPageData: {
+      hook: {
+        title: data.salesPageData?.hook?.title ?? '',
+        description: data.salesPageData?.hook?.description ?? '',
+      },
+      cta: {
+        primaryText: data.salesPageData?.cta?.primaryText ?? '',
+        secondaryText: data.salesPageData?.cta?.secondaryText ?? '',
+        urgencyNote: data.salesPageData?.cta?.urgencyNote ?? '',
+      },
+      formationInfo: data.salesPageData?.formationInfo ?? [],
+      socialProof: data.salesPageData?.socialProof ?? [],
+      beforeAfter: data.salesPageData?.beforeAfter ?? [],
+      bonuses: data.salesPageData?.bonuses ?? [],
+    },
+  }
 }
 
 export function CreateCourseForm({
@@ -564,9 +596,11 @@ export function CreateCourseForm({
   currentStatus = 'DRAFT',
   onSuccess,
 }: CreateCourseFormProps = {}) {
-  const [form, setForm] = useState<CourseFormData>(initialData ?? defaultFormData)
+  const [form, setForm] = useState<CourseFormData>(
+    initialData ? withSalesDefaults(initialData) : defaultFormData
+  )
   useEffect(() => {
-    if (mode === 'edit' && initialData) setForm(initialData)
+    if (mode === 'edit' && initialData) setForm(withSalesDefaults(initialData))
   }, [mode, initialData])
 
   const update = <K extends keyof CourseFormData>(key: K, value: CourseFormData[K]) => {
@@ -589,6 +623,100 @@ export function CreateCourseForm({
     setForm((prev) => ({
       ...prev,
       learningOutcomes: prev.learningOutcomes.filter((_, i) => i !== index),
+    }))
+  }
+
+  const updateSalesPageData = (patch: Partial<SalesPageData>) => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: { ...prev.salesPageData, ...patch },
+    }))
+  }
+
+  const setFormationInfo = (index: number, patch: Partial<FormationInfoItem>) => {
+    setForm((prev) => {
+      const next = [...prev.salesPageData.formationInfo]
+      next[index] = { ...next[index], ...patch }
+      return { ...prev, salesPageData: { ...prev.salesPageData, formationInfo: next } }
+    })
+  }
+
+  const setSocialProof = (index: number, patch: Partial<SocialProofItem>) => {
+    setForm((prev) => {
+      const next = [...prev.salesPageData.socialProof]
+      next[index] = { ...next[index], ...patch }
+      return { ...prev, salesPageData: { ...prev.salesPageData, socialProof: next } }
+    })
+  }
+
+  const setBeforeAfter = (index: number, patch: Partial<BeforeAfterItem>) => {
+    setForm((prev) => {
+      const next = [...prev.salesPageData.beforeAfter]
+      next[index] = { ...next[index], ...patch }
+      return { ...prev, salesPageData: { ...prev.salesPageData, beforeAfter: next } }
+    })
+  }
+
+  const setBonus = (index: number, patch: Partial<BonusItem>) => {
+    setForm((prev) => {
+      const next = [...prev.salesPageData.bonuses]
+      const nextItem = { ...next[index], ...patch }
+      if (nextItem.type === 'free') nextItem.price = undefined
+      next[index] = nextItem
+      return { ...prev, salesPageData: { ...prev.salesPageData, bonuses: next } }
+    })
+  }
+
+  const addFormationInfo = () => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        formationInfo: [...prev.salesPageData.formationInfo, { title: '', value: '' }],
+      },
+    }))
+  }
+
+  const addSocialProof = () => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        socialProof: [...prev.salesPageData.socialProof, { name: '', role: '', quote: '' }],
+      },
+    }))
+  }
+
+  const addBeforeAfter = () => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        beforeAfter: [...prev.salesPageData.beforeAfter, { before: '', after: '' }],
+      },
+    }))
+  }
+
+  const addBonus = () => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        bonuses: [...prev.salesPageData.bonuses, { title: '', description: '', type: 'free' }],
+      },
+    }))
+  }
+
+  const removeSalesArrayItem = (
+    key: 'formationInfo' | 'socialProof' | 'beforeAfter' | 'bonuses',
+    index: number
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        [key]: prev.salesPageData[key].filter((_, i) => i !== index),
+      },
     }))
   }
 
@@ -663,6 +791,45 @@ export function CreateCourseForm({
 
   function buildPayload(status: 'DRAFT' | 'PUBLISHED') {
     const learningOutcomes = form.learningOutcomes.filter((o) => o.trim() !== '')
+    const salesPageData: SalesPageData = {
+      hook: {
+        title: form.salesPageData.hook.title.trim(),
+        description: form.salesPageData.hook.description.trim(),
+      },
+      cta: {
+        primaryText: form.salesPageData.cta.primaryText.trim(),
+        secondaryText: form.salesPageData.cta.secondaryText.trim(),
+        urgencyNote: form.salesPageData.cta.urgencyNote.trim(),
+      },
+      formationInfo: form.salesPageData.formationInfo
+        .map((item) => ({ title: item.title.trim(), value: item.value.trim() }))
+        .filter((item) => item.title || item.value),
+      socialProof: form.salesPageData.socialProof
+        .map((item) => ({
+          name: item.name.trim(),
+          role: item.role.trim(),
+          quote: item.quote.trim(),
+          rating: item.rating && item.rating >= 1 && item.rating <= 5 ? item.rating : undefined,
+        }))
+        .filter((item) => item.name || item.role || item.quote),
+      beforeAfter: form.salesPageData.beforeAfter
+        .map((item) => ({ before: item.before.trim(), after: item.after.trim() }))
+        .filter((item) => item.before || item.after),
+      bonuses: form.salesPageData.bonuses
+        .map((item) => {
+          const priceNum = Number(item.price)
+          return {
+            title: item.title.trim(),
+            description: item.description.trim(),
+            type: item.type === 'paid' ? 'paid' : 'free',
+            price:
+              item.type === 'paid' && Number.isFinite(priceNum) && priceNum > 0
+                ? Math.round(priceNum)
+                : undefined,
+          }
+        })
+        .filter((item) => item.title || item.description),
+    }
     const sections = form.sections.map((sec, pos) => ({
       title: sec.title.trim() || 'قسم',
       items: sec.items.map((item, itemPos) => {
@@ -692,6 +859,7 @@ export function CreateCourseForm({
       language: form.language.trim() || undefined,
       description: form.description.trim() || undefined,
       learningOutcomes: learningOutcomes.length ? learningOutcomes : [''],
+      salesPageData,
       sections,
       status,
     }
@@ -1162,6 +1330,257 @@ export function CreateCourseForm({
                 <Plus className="h-4 w-4 ml-1" />
                 إضافة نقطة
               </Button>
+            </div>
+          </div>
+        </DashboardContentCard>
+
+        <DashboardContentCard
+          title="محتوى صفحة البيع"
+          description="إدارة أقسام صفحة بيع المنتج الواحد: الهوك، CTA، الإثبات الاجتماعي، قبل/بعد، والبونص"
+          icon={Star}
+        >
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900">Hook</h3>
+              <Input
+                value={form.salesPageData.hook.title}
+                onChange={(e) =>
+                  updateSalesPageData({
+                    hook: { ...form.salesPageData.hook, title: e.target.value },
+                  })
+                }
+                placeholder="عنوان الهوك الرئيسي"
+              />
+              <textarea
+                value={form.salesPageData.hook.description}
+                onChange={(e) =>
+                  updateSalesPageData({
+                    hook: { ...form.salesPageData.hook, description: e.target.value },
+                  })
+                }
+                placeholder="وصف مختصر مقنع للهوك"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900">CTA</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  value={form.salesPageData.cta.primaryText}
+                  onChange={(e) =>
+                    updateSalesPageData({
+                      cta: { ...form.salesPageData.cta, primaryText: e.target.value },
+                    })
+                  }
+                  placeholder="نص زر CTA الأساسي"
+                />
+                <Input
+                  value={form.salesPageData.cta.secondaryText}
+                  onChange={(e) =>
+                    updateSalesPageData({
+                      cta: { ...form.salesPageData.cta, secondaryText: e.target.value },
+                    })
+                  }
+                  placeholder="نص CTA ثانوي (اختياري)"
+                />
+              </div>
+              <Input
+                value={form.salesPageData.cta.urgencyNote}
+                onChange={(e) =>
+                  updateSalesPageData({
+                    cta: { ...form.salesPageData.cta, urgencyNote: e.target.value },
+                  })
+                }
+                placeholder="ملاحظة استعجال (مثال: المقاعد محدودة)"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Formation Info</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addFormationInfo}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة معلومة
+                </Button>
+              </div>
+              {form.salesPageData.formationInfo.map((item, index) => (
+                <div key={`fi-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Input
+                    value={item.title}
+                    onChange={(e) => setFormationInfo(index, { title: e.target.value })}
+                    placeholder="العنوان"
+                  />
+                  <Input
+                    value={item.value}
+                    onChange={(e) => setFormationInfo(index, { value: e.target.value })}
+                    placeholder="القيمة"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeSalesArrayItem('formationInfo', index)}
+                    aria-label="حذف"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Social Proof</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addSocialProof}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة شهادة
+                </Button>
+              </div>
+              {form.salesPageData.socialProof.map((item, index) => (
+                <div key={`sp-${index}`} className="space-y-2 rounded-lg border p-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      value={item.name}
+                      onChange={(e) => setSocialProof(index, { name: e.target.value })}
+                      placeholder="الاسم"
+                    />
+                    <Input
+                      value={item.role}
+                      onChange={(e) => setSocialProof(index, { role: e.target.value })}
+                      placeholder="الصفة"
+                    />
+                  </div>
+                  <textarea
+                    value={item.quote}
+                    onChange={(e) => setSocialProof(index, { quote: e.target.value })}
+                    placeholder="نص الشهادة"
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={item.rating ?? ''}
+                      onChange={(e) =>
+                        setSocialProof(index, {
+                          rating: e.target.value ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      placeholder="التقييم 1-5 (اختياري)"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeSalesArrayItem('socialProof', index)}
+                      aria-label="حذف"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Before / After</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addBeforeAfter}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة مقارنة
+                </Button>
+              </div>
+              {form.salesPageData.beforeAfter.map((item, index) => (
+                <div key={`ba-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Input
+                    value={item.before}
+                    onChange={(e) => setBeforeAfter(index, { before: e.target.value })}
+                    placeholder="قبل"
+                  />
+                  <Input
+                    value={item.after}
+                    onChange={(e) => setBeforeAfter(index, { after: e.target.value })}
+                    placeholder="بعد"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeSalesArrayItem('beforeAfter', index)}
+                    aria-label="حذف"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Bonuses</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addBonus}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة Bonus
+                </Button>
+              </div>
+              {form.salesPageData.bonuses.map((item, index) => (
+                <div key={`bo-${index}`} className="space-y-2 rounded-lg border p-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      value={item.title}
+                      onChange={(e) => setBonus(index, { title: e.target.value })}
+                      placeholder="عنوان البونص"
+                    />
+                    <select
+                      value={item.type}
+                      onChange={(e) =>
+                        setBonus(index, {
+                          type: e.target.value === 'paid' ? 'paid' : 'free',
+                        })
+                      }
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                    >
+                      <option value="free">مجاني</option>
+                      <option value="paid">مدفوع</option>
+                    </select>
+                  </div>
+                  <textarea
+                    value={item.description}
+                    onChange={(e) => setBonus(index, { description: e.target.value })}
+                    placeholder="وصف البونص"
+                    rows={2}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    {item.type === 'paid' && (
+                      <Input
+                        type="number"
+                        min={1}
+                        value={item.price ?? ''}
+                        onChange={(e) =>
+                          setBonus(index, {
+                            price: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="السعر (د.ج)"
+                      />
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeSalesArrayItem('bonuses', index)}
+                      aria-label="حذف"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </DashboardContentCard>

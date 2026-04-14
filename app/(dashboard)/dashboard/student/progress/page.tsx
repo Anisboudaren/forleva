@@ -2,33 +2,169 @@ import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { TrendingUp, BookOpen, Clock, Target, Award, Calendar } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
 import { cn } from "@/lib/utils"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
 
-export default function ProgressPage() {
-  const progressData = {
-    overallProgress: 68,
-    totalHours: 145,
-    studyStreak: 12,
-    completedCourses: 5,
-    enrolledCourses: 8,
-    certificates: 2,
+const DAYS_AR = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+
+function parseDurationToMinutes(duration: string | null | undefined): number {
+  if (!duration) return 0
+  const m = duration.match(/(\d+)/)
+  const n = m ? Number(m[1]) : 0
+  if (!Number.isFinite(n) || n <= 0) return 0
+  if (duration.includes("ساعة") || duration.includes("ساع")) return n * 60
+  if (duration.includes("دقيقة") || duration.includes("دق")) return n
+  return 0
+}
+
+function dayKey(d: Date) {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function computeStreak(activityKeys: Set<string>) {
+  let streak = 0
+  const cur = new Date()
+  for (;;) {
+    const key = dayKey(cur)
+    if (!activityKeys.has(key)) break
+    streak += 1
+    cur.setDate(cur.getDate() - 1)
+  }
+  return streak
+}
+
+export default async function ProgressPage() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "STUDENT") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للطلاب فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب طالب لعرض تقدمك.</p>
+      </div>
+    )
   }
 
-  const weeklyProgress = [
-    { day: "السبت", hours: 3, lessons: 5 },
-    { day: "الأحد", hours: 2, lessons: 3 },
-    { day: "الإثنين", hours: 4, lessons: 7 },
-    { day: "الثلاثاء", hours: 1, lessons: 2 },
-    { day: "الأربعاء", hours: 3, lessons: 4 },
-    { day: "الخميس", hours: 2, lessons: 3 },
-    { day: "الجمعة", hours: 0, lessons: 0 },
-  ]
+  const confirmedOrders = await prisma.order.findMany({
+    where: { userId: session.userId, status: "CONFIRMED" },
+    select: { courseId: true },
+  })
+  const courseIds = Array.from(new Set(confirmedOrders.map((o) => o.courseId)))
 
-  const courseProgress = [
-    { name: "مقدمة في البرمجة", progress: 65, hours: 12 },
-    { name: "تصميم واجهات المستخدم", progress: 40, hours: 8 },
-    { name: "React للمحترفين", progress: 25, hours: 5 },
-    { name: "قواعد البيانات", progress: 100, hours: 20 },
-  ]
+  const [courses, progressRows] = await Promise.all([
+    prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: {
+        id: true,
+        title: true,
+        sections: {
+          orderBy: { position: "asc" },
+          select: {
+            items: {
+              orderBy: { position: "asc" },
+              select: { id: true, duration: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.courseItemProgress.findMany({
+      where: { userId: session.userId, courseId: { in: courseIds } },
+      select: { courseId: true, itemId: true, completedAt: true, lastViewedAt: true, updatedAt: true },
+    }),
+  ])
+
+  const completedByCourse = new Map<string, Set<string>>()
+  const activityDayKeys = new Set<string>()
+  for (const p of progressRows) {
+    const t = p.lastViewedAt ?? p.completedAt ?? p.updatedAt
+    activityDayKeys.add(dayKey(t))
+    if (p.completedAt) {
+      const set = completedByCourse.get(p.courseId) ?? new Set<string>()
+      set.add(p.itemId)
+      completedByCourse.set(p.courseId, set)
+    }
+  }
+
+  const courseProgress = courses.map((c) => {
+    const flatItems = c.sections.flatMap((s) => s.items)
+    const totalItems = flatItems.length
+    const completedSet = completedByCourse.get(c.id) ?? new Set<string>()
+    const completedItems = completedSet.size
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+    const minutes = flatItems
+      .filter((i) => completedSet.has(i.id))
+      .reduce((acc, i) => acc + parseDurationToMinutes(i.duration), 0)
+    const hours = Math.round(minutes / 60)
+    return { name: c.title, progress, hours, totalItems, completedItems }
+  })
+
+  const totals = courseProgress.reduce(
+    (acc, c) => {
+      acc.totalItems += c.totalItems
+      acc.completedItems += c.completedItems
+      acc.totalHours += c.hours
+      return acc
+    },
+    { totalItems: 0, completedItems: 0, totalHours: 0 }
+  )
+
+  const overallProgress =
+    totals.totalItems > 0 ? Math.round((totals.completedItems / totals.totalItems) * 100) : 0
+  const enrolledCourses = courseIds.length
+  const completedCourses = courseProgress.filter((c) => c.totalItems > 0 && c.completedItems === c.totalItems).length
+  const certificates = 0
+  const studyStreak = computeStreak(activityDayKeys)
+
+  const progressData = {
+    overallProgress,
+    totalHours: totals.totalHours,
+    studyStreak,
+    completedCourses,
+    enrolledCourses,
+    certificates,
+  }
+
+  // Weekly progress: last 7 days (including today), hours/lessons from completed items
+  const today = new Date()
+  const keys: string[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    keys.push(dayKey(d))
+  }
+  const daily = new Map<string, { minutes: number; lessons: number }>()
+  for (const k of keys) daily.set(k, { minutes: 0, lessons: 0 })
+
+  const completedRows = progressRows.filter((p) => p.completedAt)
+  if (completedRows.length > 0) {
+    const itemIds = Array.from(new Set(completedRows.map((r) => r.itemId)))
+    const items = await prisma.courseSectionItem.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, duration: true },
+    })
+    const durMap = new Map(items.map((i) => [i.id, parseDurationToMinutes(i.duration)]))
+    for (const r of completedRows) {
+      const k = dayKey(r.completedAt as Date)
+      const bucket = daily.get(k)
+      if (!bucket) continue
+      bucket.lessons += 1
+      bucket.minutes += durMap.get(r.itemId) ?? 0
+    }
+  }
+
+  const weeklyProgress = keys.map((k) => {
+    const d = new Date(k + "T00:00:00")
+    const b = daily.get(k) ?? { minutes: 0, lessons: 0 }
+    return {
+      day: DAYS_AR[d.getDay()] ?? "",
+      hours: Math.round((b.minutes / 60) * 10) / 10,
+      lessons: b.lessons,
+    }
+  })
 
   return (
     <div className="flex flex-1 flex-col gap-6">

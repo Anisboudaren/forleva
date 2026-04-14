@@ -1,14 +1,21 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { User, Search, X } from 'lucide-react'
-import { courses } from '@/components/popular-courses/PopularCourses'
 
 type UserSession = { userId: string; role: 'STUDENT' | 'TEACHER'; email: string | null }
+type SearchCourse = {
+  id: string
+  title: string
+  instructor: string
+  category: string
+  price: number
+  imageUrl: string | null
+}
 
 export function Header3 () {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -16,8 +23,9 @@ export function Header3 () {
   const [activeSection, setActiveSection] = useState('hero')
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchCourse[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const [session, setSession] = useState<UserSession | null>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const isHomePage = pathname === '/'
   const isCertificatesPage = pathname === '/certificates'
@@ -82,27 +90,146 @@ export function Header3 () {
     return isHomePage ? `#${sectionId}` : `/#${sectionId}`
   }
 
-  // Search functionality
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    const query = searchQuery.toLowerCase()
-    return courses.filter(course => 
-      course.title.toLowerCase().includes(query) ||
-      course.instructor.toLowerCase().includes(query) ||
-      course.category.toLowerCase().includes(query)
-    ).slice(0, 5) // Limit to 5 results
+  useEffect(() => {
+    const query = searchQuery.trim()
+    // #region agent log
+    fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H2',location:'components/header3/Header3.tsx:95',message:'search effect triggered',data:{searchQuery,trimmedQuery:query},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (!query) {
+      setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H3',location:'components/header3/Header3.tsx:108',message:'header search fetch start',data:{query},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        const response = await fetch(`/api/courses?q=${encodeURIComponent(query)}&limit=5`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          setSearchResults([])
+          return
+        }
+        const data = await response.json()
+        // #region agent log
+        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H4',location:'components/header3/Header3.tsx:119',message:'header search fetch success',data:{ok:response.ok,status:response.status,resultCount:Array.isArray(data)?data.length:-1},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        setSearchResults(Array.isArray(data) ? data : [])
+      } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H1',location:'components/header3/Header3.tsx:123',message:'header search fetch failed',data:{errorName:(error as Error).name,errorMessage:(error as Error).message},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        if ((error as Error).name !== 'AbortError') {
+          setSearchResults([])
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearching(false)
+        }
+      }
+    }, 250)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
   }, [searchQuery])
 
-  // Close search dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setIsSearchFocused(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const renderSearch = (wrapperClassName?: string, onSelectResult?: () => void) => (
+    <div className={wrapperClassName}>
+      <div className="relative">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+        <input
+          type="text"
+          placeholder="ابحث عن دورة..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value)
+            setIsSearchFocused(true)
+          }}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => {
+            window.setTimeout(() => setIsSearchFocused(false), 150)
+          }}
+          className="w-full pr-10 pl-10 py-2.5 text-sm text-right border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all bg-white"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => {
+              setSearchQuery('')
+              setSearchResults([])
+              setIsSearchFocused(false)
+            }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+            type="button"
+            aria-label="مسح البحث"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isSearchFocused && searchQuery.trim() && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-2xl border-2 border-gray-200 max-h-80 overflow-y-auto z-[100]"
+          >
+            {isSearching ? (
+              <div className="px-4 py-8 text-center text-gray-500 text-sm">جاري البحث...</div>
+            ) : searchResults.length > 0 ? (
+              <div className="py-2">
+                {searchResults.map((course) => (
+                  <Link
+                    key={course.id}
+                    href={`/courses/${course.id}`}
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSearchResults([])
+                      setIsSearchFocused(false)
+                      onSelectResult?.()
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-amber-50 transition-colors border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="relative w-16 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                      <Image
+                        src={
+                          course.imageUrl ||
+                          'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop'
+                        }
+                        alt={course.title}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{course.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{course.instructor} • {course.category}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-amber-600">{course.price.toLocaleString()} د.ج</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-8 text-center text-gray-500 text-sm">لا توجد نتائج</div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 
   return (
     <header
@@ -184,8 +311,9 @@ export function Header3 () {
             </nav>
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden lg:flex lg:items-center lg:ml-auto">
+          {/* Desktop Search + CTA */}
+          <div className="hidden lg:flex lg:items-center lg:gap-4 lg:ml-auto">
+            {renderSearch('relative w-80')}
             {session ? (
               <Link
                 href="/dashboard"
@@ -274,92 +402,8 @@ export function Header3 () {
                 className="flex flex-col space-y-1 p-4"
               >
                 {/* Mobile Search */}
-                <div ref={searchRef} className="mb-4 pb-4 border-b border-gray-200 relative z-50">
-                  <div className="relative">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                    <input
-                      type="text"
-                      placeholder="ابحث عن دورة..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value)
-                        setIsSearchFocused(true)
-                      }}
-                      onFocus={() => setIsSearchFocused(true)}
-                      onBlur={(e) => {
-                        // Don't close if clicking on dropdown
-                        if (!searchRef.current?.contains(e.relatedTarget as Node)) {
-                          setTimeout(() => setIsSearchFocused(false), 200)
-                        }
-                      }}
-                      className="w-full pr-10 pl-4 py-2.5 text-sm text-right border-2 border-gray-200 rounded-xl focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all bg-white relative z-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery('')
-                          setIsSearchFocused(false)
-                        }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
-                        type="button"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Search Results Dropdown */}
-                  <AnimatePresence>
-                    {isSearchFocused && searchQuery.trim() && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-2xl border-2 border-gray-200 max-h-80 overflow-y-auto z-[100]"
-                        style={{ position: 'absolute' }}
-                      >
-                        {searchResults.length > 0 ? (
-                          <div className="py-2">
-                            {searchResults.map((course) => (
-                              <Link
-                                key={course.id}
-                                href={`/courses/${course.id}`}
-                                onClick={() => {
-                                  setSearchQuery('')
-                                  setIsSearchFocused(false)
-                                  setIsMenuOpen(false)
-                                }}
-                                onMouseDown={(e) => e.preventDefault()}
-                                className="flex items-center gap-3 px-4 py-3 hover:bg-amber-50 transition-colors border-b border-gray-100 last:border-b-0"
-                              >
-                                <div className="relative w-16 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                                  <Image
-                                    src={course.image}
-                                    alt={course.title}
-                                    fill
-                                    className="object-cover"
-                                    sizes="64px"
-                                  />
-                                </div>
-                                <div className="flex-1 min-w-0 text-right">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">{course.title}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">{course.instructor} • {course.category}</p>
-                                </div>
-                                <div className="text-left">
-                                  <p className="text-sm font-bold text-amber-600">{course.price.toLocaleString()} د.ج</p>
-                                </div>
-                              </Link>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                            لا توجد نتائج
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                <div className="mb-4 pb-4 border-b border-gray-200 relative z-50">
+                  {renderSearch('relative', () => setIsMenuOpen(false))}
                 </div>
 
                 <Link

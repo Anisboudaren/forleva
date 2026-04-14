@@ -39,6 +39,32 @@ export async function PATCH(
       return NextResponse.json({ error: 'لا يوجد تحديث صالح' }, { status: 400 })
     }
 
+    const currentOrder = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, userId: true, courseId: true, status: true },
+    })
+    if (!currentOrder) {
+      return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 })
+    }
+
+    if (updateData.status === 'CONFIRMED') {
+      const existingConfirmed = await prisma.order.findFirst({
+        where: {
+          userId: currentOrder.userId,
+          courseId: currentOrder.courseId,
+          status: 'CONFIRMED',
+          id: { not: id },
+        },
+        select: { id: true },
+      })
+      if (existingConfirmed) {
+        return NextResponse.json(
+          { error: 'يوجد طلب مؤكد مسبقاً لهذه الدورة وهذا الطالب' },
+          { status: 409 }
+        )
+      }
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: updateData,

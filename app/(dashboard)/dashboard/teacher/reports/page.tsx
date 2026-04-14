@@ -1,20 +1,115 @@
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
 import { BarChart3, TrendingUp, Download, Calendar, DollarSign, Users } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
 
-export default function ReportsPage() {
-  const monthlyData = [
-    { month: "يناير", sales: 1247, revenue: 374100, students: 342 },
-    { month: "ديسمبر", sales: 1103, revenue: 330900, students: 298 },
-    { month: "نوفمبر", sales: 892, revenue: 267600, students: 256 },
-    { month: "أكتوبر", sales: 756, revenue: 226800, students: 189 },
-  ]
+const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 
-  const topCourses = [
-    { name: "مقدمة في البرمجة", sales: 342, revenue: 102258 },
-    { name: "قواعد البيانات المتقدمة", sales: 256, revenue: 89344 },
-    { name: "تصميم واجهات المستخدم", sales: 189, revenue: 47061 },
-  ]
+function monthKey(d: Date) {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  return `${yyyy}-${mm}`
+}
+
+function monthLabelFromKey(key: string) {
+  const [y, m] = key.split("-")
+  const mi = Number(m) - 1
+  return `${MONTHS_AR[mi] ?? ""} ${y}`
+}
+
+function formatCurrencyDZD(amount: number) {
+  return `${Math.round(amount).toLocaleString()} د.ج`
+}
+
+export default async function ReportsPage() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "TEACHER") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للمدرسين فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب مدرس لعرض التقارير.</p>
+      </div>
+    )
+  }
+
+  const now = new Date()
+  const start4Months = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+  const start7d = new Date(now)
+  start7d.setDate(now.getDate() - 7)
+
+  // Pull confirmed sales for the teacher's courses (last 4 months for table)
+  const orders = await prisma.order.findMany({
+    where: {
+      status: "CONFIRMED",
+      createdAt: { gte: start4Months },
+      course: { teacherId: session.userId },
+    },
+    select: {
+      amount: true,
+      createdAt: true,
+      userId: true,
+      courseId: true,
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const monthlyBuckets = new Map<string, { sales: number; revenue: number; studentIds: Set<string> }>()
+  for (const o of orders) {
+    const k = monthKey(o.createdAt)
+    const b = monthlyBuckets.get(k) ?? { sales: 0, revenue: 0, studentIds: new Set<string>() }
+    b.sales += 1
+    b.revenue += o.amount
+    b.studentIds.add(o.userId)
+    monthlyBuckets.set(k, b)
+  }
+
+  const monthKeys: string[] = []
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    monthKeys.push(monthKey(d))
+  }
+
+  const monthlyData = monthKeys.map((k) => {
+    const b = monthlyBuckets.get(k) ?? { sales: 0, revenue: 0, studentIds: new Set<string>() }
+    return {
+      month: monthLabelFromKey(k),
+      sales: b.sales,
+      revenue: b.revenue,
+      students: b.studentIds.size,
+    }
+  })
+
+  const totalRevenue4m = monthlyData.reduce((acc, m) => acc + m.revenue, 0)
+  const totalSales4m = monthlyData.reduce((acc, m) => acc + m.sales, 0)
+
+  const recent7dOrders = orders.filter((o) => o.createdAt >= start7d)
+  const revenue7d = recent7dOrders.reduce((acc, o) => acc + o.amount, 0)
+  const sales7d = recent7dOrders.length
+  const students7d = new Set(recent7dOrders.map((o) => o.userId)).size
+
+  // Top courses (all-time confirmed)
+  const top = await prisma.order.groupBy({
+    by: ["courseId"],
+    where: { status: "CONFIRMED", course: { teacherId: session.userId } },
+    _count: { _all: true },
+    _sum: { amount: true },
+    orderBy: { _sum: { amount: "desc" } },
+    take: 5,
+  })
+
+  const topIds = top.map((t) => t.courseId)
+  const topCoursesMeta = await prisma.course.findMany({
+    where: { id: { in: topIds }, teacherId: session.userId },
+    select: { id: true, title: true },
+  })
+  const titleMap = new Map(topCoursesMeta.map((c) => [c.id, c.title]))
+  const topCourses = top.map((t) => ({
+    name: titleMap.get(t.courseId) ?? "—",
+    sales: t._count._all,
+    revenue: t._sum.amount ?? 0,
+  }))
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -28,10 +123,13 @@ export default function ReportsPage() {
             تحليل شامل لأداء دوراتك وإحصائيات منصتك
           </p>
         </div>
-        <button className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <a
+          href="/api/teacher/exports?kind=reports"
+          className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
           <Download className="h-4 w-4" />
           تصدير التقرير
-        </button>
+        </a>
       </div>
 
       {/* Stats */}
@@ -39,30 +137,30 @@ export default function ReportsPage() {
         <DashboardCard
           variant="blue"
           icon={TrendingUp}
-          title="نمو المبيعات"
-          value="+18%"
-          description="من الشهر الماضي"
+          title="مبيعات آخر 7 أيام"
+          value={sales7d}
+          description="مبيعات مؤكدة"
         />
         <DashboardCard
           variant="green"
           icon={DollarSign}
           title="إجمالي الإيرادات"
-          value="1,199,400 د.ج"
-          description="هذا الشهر"
+          value={formatCurrencyDZD(totalRevenue4m)}
+          description="آخر 4 أشهر"
         />
         <DashboardCard
           variant="yellow"
           icon={Users}
-          title="نمو الطلاب"
-          value="+15%"
-          description="من الشهر الماضي"
+          title="طلاب آخر 7 أيام"
+          value={students7d}
+          description="طلاب جدد (مبيعات مؤكدة)"
         />
         <DashboardCard
           variant="purple"
           icon={BarChart3}
-          title="متوسط المبيعات"
-          value="312"
-          description="مبيعة شهرياً"
+          title="متوسط قيمة المبيعة"
+          value={totalSales4m > 0 ? formatCurrencyDZD(totalRevenue4m / totalSales4m) : "—"}
+          description="آخر 4 أشهر"
         />
       </div>
 
@@ -87,7 +185,7 @@ export default function ReportsPage() {
                 <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-sm font-semibold text-gray-900">{data.month}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{data.sales.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{data.revenue.toLocaleString()} د.ج</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{formatCurrencyDZD(data.revenue)}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{data.students}</td>
                 </tr>
               ))}
@@ -103,7 +201,11 @@ export default function ReportsPage() {
         icon={TrendingUp}
       >
         <div className="space-y-4">
-          {topCourses.map((course, index) => (
+          {topCourses.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-600">لا توجد مبيعات مؤكدة بعد.</p>
+            </div>
+          ) : topCourses.map((course, index) => (
             <div
               key={index}
               className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:shadow-md transition-all duration-300"
@@ -118,7 +220,7 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div className="text-left">
-                <p className="text-lg font-bold text-gray-900">{course.revenue.toLocaleString()} د.ج</p>
+                <p className="text-lg font-bold text-gray-900">{formatCurrencyDZD(course.revenue)}</p>
                 <p className="text-xs text-gray-600">إيرادات</p>
               </div>
             </div>

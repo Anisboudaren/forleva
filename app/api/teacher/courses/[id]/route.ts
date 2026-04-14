@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
+import { normalizeSalesPageData } from '@/lib/course-sales'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -90,6 +91,7 @@ export async function GET(
     const mapped = {
       ...course,
       learningOutcomes: course.learningOutcomes as string[],
+      salesPageData: normalizeSalesPageData(course.salesPageData),
       sections: course.sections.map((sec) => ({
         id: sec.id,
         title: sec.title,
@@ -145,6 +147,7 @@ export async function PATCH(
       language?: string
       description?: string
       learningOutcomes?: string[]
+      salesPageData?: unknown
       sections?: ApiSection[]
     }
 
@@ -176,6 +179,7 @@ export async function PATCH(
       body.sections !== undefined ||
       body.learningOutcomes !== undefined
     if (!hasFullPayload) {
+      const normalizedSalesPageData = normalizeSalesPageData(body.salesPageData)
       const updated = await prisma.course.update({
         where: { id },
         data: {
@@ -191,6 +195,7 @@ export async function PATCH(
           ...(body.language !== undefined && { language: body.language ? String(body.language).trim() : null }),
           ...(body.description !== undefined && { description: body.description ? String(body.description).trim() : null }),
           ...(Array.isArray(body.learningOutcomes) && { learningOutcomes: body.learningOutcomes }),
+          ...(body.salesPageData !== undefined && { salesPageData: normalizedSalesPageData }),
         },
         include: {
           sections: { orderBy: { position: 'asc' }, include: { items: { orderBy: { position: 'asc' } } } },
@@ -210,6 +215,10 @@ export async function PATCH(
     const learningOutcomes = Array.isArray(body.learningOutcomes)
       ? body.learningOutcomes.filter((o): o is string => typeof o === 'string')
       : (existing.learningOutcomes as string[])
+    const normalizedSalesPageData =
+      body.salesPageData !== undefined
+        ? normalizeSalesPageData(body.salesPageData)
+        : normalizeSalesPageData(existing.salesPageData)
 
     // Teachers cannot set PUBLISHED directly; map to PENDING_REVIEW for admin approval.
     const statusUpdate: CourseStatus | undefined =
@@ -242,6 +251,7 @@ export async function PATCH(
       language: body.language !== undefined ? (body.language ? String(body.language).trim() : null) : existing.language,
       description: body.description !== undefined ? (body.description ? String(body.description).trim() : null) : existing.description,
       learningOutcomes,
+      salesPageData: normalizedSalesPageData,
       ...(sections
         ? {
             sections: {

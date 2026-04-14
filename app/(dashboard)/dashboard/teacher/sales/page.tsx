@@ -1,47 +1,86 @@
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
 import { ShoppingCart, TrendingUp, DollarSign, Calendar, Download } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
+import { prisma } from "@/lib/db"
+import { getUserSession } from "@/lib/user-session"
 
-export default function SalesPage() {
-  const sales = [
-    {
-      id: 1,
-      courseName: "مقدمة في البرمجة",
-      studentName: "أحمد محمد",
-      amount: 299,
-      date: "15 يناير 2024",
-      status: "completed",
-    },
-    {
-      id: 2,
-      courseName: "تصميم واجهات المستخدم",
-      studentName: "فاطمة علي",
-      amount: 249,
-      date: "14 يناير 2024",
-      status: "completed",
-    },
-    {
-      id: 3,
-      courseName: "قواعد البيانات المتقدمة",
-      studentName: "خالد حسن",
-      amount: 349,
-      date: "13 يناير 2024",
-      status: "completed",
-    },
-    {
-      id: 4,
-      courseName: "مقدمة في البرمجة",
-      studentName: "سارة أحمد",
-      amount: 299,
-      date: "12 يناير 2024",
-      status: "completed",
-    },
-  ]
+function formatCurrencyDZD(amount: number) {
+  return `${Math.round(amount).toLocaleString()} د.ج`
+}
 
-  const totalSales = sales.length
-  const totalRevenue = sales.reduce((sum, s) => sum + s.amount, 0)
-  const todaySales = sales.filter(s => s.date.includes("15")).length
-  const todayRevenue = sales.filter(s => s.date.includes("15")).reduce((sum, s) => sum + s.amount, 0)
+function formatDateAr(date: Date) {
+  return date.toLocaleDateString("ar-DZ", { day: "numeric", month: "long", year: "numeric" })
+}
+
+export default async function SalesPage() {
+  const session = await getUserSession()
+
+  if (!session || session.role !== "TEACHER") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-900">هذه الصفحة متاحة للمدرسين فقط</p>
+        <p className="text-sm text-gray-600">يرجى تسجيل الدخول بحساب مدرس لعرض المبيعات.</p>
+      </div>
+    )
+  }
+
+  const now = new Date()
+  const start7d = new Date(now)
+  start7d.setDate(now.getDate() - 7)
+  const startToday = new Date(now)
+  startToday.setHours(0, 0, 0, 0)
+
+  const [orders, aggAll, agg7d, aggToday] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        status: "CONFIRMED",
+        course: { teacherId: session.userId },
+      },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        course: { select: { title: true } },
+        user: { select: { fullName: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+    prisma.order.aggregate({
+      where: { status: "CONFIRMED", course: { teacherId: session.userId } },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+    prisma.order.aggregate({
+      where: { status: "CONFIRMED", createdAt: { gte: start7d }, course: { teacherId: session.userId } },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+    prisma.order.aggregate({
+      where: { status: "CONFIRMED", createdAt: { gte: startToday }, course: { teacherId: session.userId } },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
+  ])
+
+  const totalSales = aggAll._count._all
+  const totalRevenue = aggAll._sum.amount ?? 0
+  const todaySales = aggToday._count._all
+  const todayRevenue = aggToday._sum.amount ?? 0
+  const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0
+
+  const sales = orders.map((o) => {
+    const studentName = o.user?.fullName || o.user?.email || o.user?.phone || "طالب"
+    return {
+      id: o.id,
+      courseName: o.course?.title ?? "—",
+      studentName,
+      amount: o.amount,
+      date: formatDateAr(o.createdAt),
+      status: o.status,
+    }
+  })
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -55,10 +94,13 @@ export default function SalesPage() {
             تتبع مبيعات دوراتك وإيراداتك
           </p>
         </div>
-        <button className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <a
+          href="/api/teacher/exports?kind=sales"
+          className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
           <Download className="h-4 w-4" />
           تصدير التقرير
-        </button>
+        </a>
       </div>
 
       {/* Stats */}
@@ -68,27 +110,27 @@ export default function SalesPage() {
           icon={ShoppingCart}
           title="إجمالي المبيعات"
           value={totalSales}
-          description="مبيعة إجمالية"
+          description={`${agg7d._count._all} في آخر 7 أيام`}
         />
         <DashboardCard
           variant="green"
           icon={DollarSign}
           title="إجمالي الإيرادات"
-          value={`${totalRevenue.toLocaleString()} د.ج`}
-          description="إيرادات إجمالية"
+          value={formatCurrencyDZD(totalRevenue)}
+          description={`${formatCurrencyDZD(agg7d._sum.amount ?? 0)} في آخر 7 أيام`}
         />
         <DashboardCard
           variant="yellow"
           icon={Calendar}
           title="مبيعات اليوم"
           value={todaySales}
-          description={`${todayRevenue.toLocaleString()} د.ج`}
+          description={formatCurrencyDZD(todayRevenue)}
         />
         <DashboardCard
           variant="purple"
           icon={TrendingUp}
           title="متوسط المبيعات"
-          value={`${Math.round(totalRevenue / totalSales)} د.ج`}
+          value={totalSales > 0 ? formatCurrencyDZD(avgSale) : "—"}
           description="لكل مبيعة"
         />
       </div>
@@ -96,7 +138,7 @@ export default function SalesPage() {
       {/* Sales List */}
       <DashboardContentCard
         title="سجل المبيعات"
-        description={`${totalSales} مبيعة`}
+        description={`${sales.length} آخر المبيعات`}
         icon={ShoppingCart}
       >
         <div className="overflow-x-auto">
@@ -111,16 +153,28 @@ export default function SalesPage() {
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale) => (
+              {sales.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-sm text-gray-600">
+                    لا توجد مبيعات مؤكدة بعد.
+                  </td>
+                </tr>
+              ) : sales.map((sale) => (
                 <tr key={sale.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-sm text-gray-900">{sale.courseName}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{sale.studentName}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{sale.amount} د.ج</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-gray-900">{formatCurrencyDZD(sale.amount)}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{sale.date}</td>
                   <td className="py-3 px-4">
-                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                      مكتملة
-                    </span>
+                    {sale.status === "CONFIRMED" ? (
+                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                        مؤكدة
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                        {sale.status}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

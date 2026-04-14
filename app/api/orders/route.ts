@@ -26,6 +26,19 @@ export async function POST(req: Request) {
     if (!course) {
       return NextResponse.json({ error: 'الدورة غير موجودة أو غير منشورة' }, { status: 404 })
     }
+    const existing = await prisma.order.findFirst({
+      where: {
+        userId: session.userId,
+        courseId: course.id,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 })
+    }
+
     const order = await prisma.order.create({
       data: {
         userId: session.userId,

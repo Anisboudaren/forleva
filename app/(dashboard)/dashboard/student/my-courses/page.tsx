@@ -29,13 +29,21 @@ type MyCourse = {
   totalLessons: number
   completedLessons: number
   lastAccessed: string
+  startedAtLabel: string
   image: string
   status: "in-progress" | "completed" | "not-started"
   category: string
   orderStatus: OrderStatus
 }
 
-export default async function MyCoursesPage() {
+export default async function MyCoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; tab?: string }>
+}) {
+  const params = await searchParams
+  const query = (params.q ?? "").trim().toLowerCase()
+  const tab = (params.tab ?? "all").trim()
   const session = await getUserSession()
 
   if (!session || session.role !== "STUDENT") {
@@ -56,42 +64,123 @@ export default async function MyCoursesPage() {
     },
     include: {
       course: {
-        include: {
-          teacher: true,
-        },
+        include: { teacher: true },
       },
     },
     orderBy: { createdAt: "desc" },
   })
+
+  const confirmedCourseIds = Array.from(
+    new Set(orders.filter((o) => o.status === "CONFIRMED").map((o) => o.course.id))
+  )
+
+  const [totalItemsCounts, progressRows] = await Promise.all([
+    prisma.courseSectionItem.groupBy({
+      by: ["sectionId"],
+      where: { section: { courseId: { in: confirmedCourseIds } } },
+      _count: { _all: true },
+    }),
+    prisma.courseItemProgress.findMany({
+      where: { userId: session.userId, courseId: { in: confirmedCourseIds } },
+      select: {
+        courseId: true,
+        itemId: true,
+        startedAt: true,
+        lastViewedAt: true,
+        completedAt: true,
+        updatedAt: true,
+      },
+    }),
+  ])
+
+  const sections = await prisma.courseSection.findMany({
+    where: { courseId: { in: confirmedCourseIds } },
+    select: { id: true, courseId: true },
+  })
+  const sectionToCourse = new Map(sections.map((s) => [s.id, s.courseId]))
+
+  const totalByCourse = new Map<string, number>()
+  for (const row of totalItemsCounts) {
+    const cid = sectionToCourse.get(row.sectionId)
+    if (!cid) continue
+    totalByCourse.set(cid, (totalByCourse.get(cid) ?? 0) + row._count._all)
+  }
+
+  const completedByCourse = new Map<string, Set<string>>()
+  const lastActivityByCourse = new Map<string, Date>()
+  const startedAtByCourse = new Map<string, Date>()
+
+  for (const p of progressRows) {
+    const activity = p.lastViewedAt ?? p.completedAt ?? p.updatedAt
+    const prev = lastActivityByCourse.get(p.courseId)
+    if (!prev || activity.getTime() > prev.getTime()) lastActivityByCourse.set(p.courseId, activity)
+
+    const started = p.startedAt ?? p.lastViewedAt ?? p.completedAt ?? p.updatedAt
+    const prevStart = startedAtByCourse.get(p.courseId)
+    if (!prevStart || started.getTime() < prevStart.getTime()) startedAtByCourse.set(p.courseId, started)
+
+    if (p.completedAt) {
+      const set = completedByCourse.get(p.courseId) ?? new Set<string>()
+      set.add(p.itemId)
+      completedByCourse.set(p.courseId, set)
+    }
+  }
 
   const courses: MyCourse[] = orders
     .filter((order) => order.course)
     .map((order) => {
       const course = order.course
       const instructorName = course.teacher?.fullName || "مدرب الدورة"
+      const isConfirmed = order.status === "CONFIRMED"
+
+      const totalLessons = isConfirmed ? (totalByCourse.get(course.id) ?? 0) : 0
+      const completedLessons = isConfirmed ? (completedByCourse.get(course.id)?.size ?? 0) : 0
+      const progress =
+        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+
+      const startedAt = isConfirmed ? (startedAtByCourse.get(course.id) ?? null) : null
+      const lastAt = isConfirmed ? (lastActivityByCourse.get(course.id) ?? null) : null
+
+      const status: MyCourse["status"] =
+        totalLessons > 0 && completedLessons === totalLessons
+          ? "completed"
+          : completedLessons > 0
+            ? "in-progress"
+            : "not-started"
 
       return {
         id: course.id,
         name: course.title,
         instructor: instructorName,
-        // TODO: استبدال القيم الثابتة بتقدم فعلي عندما يتوفر
-        progress: 0,
-        totalLessons: 0,
-        completedLessons: 0,
-        lastAccessed: formatRelativeAr(order.createdAt),
+        progress,
+        totalLessons,
+        completedLessons,
+        lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
+        startedAtLabel: startedAt ? formatRelativeAr(startedAt) : "لم تبدأ بعد",
         image:
           course.imageUrl ||
           "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
-        // حالياً جميع الدورات تعتبر "لم تبدأ بعد" حتى يتم بناء نظام التقدم
-        status: "not-started",
+        status,
         category: course.category,
         orderStatus: order.status,
       }
     })
 
-  const inProgressCourses = courses.filter((c) => c.status === "in-progress")
-  const completedCourses = courses.filter((c) => c.status === "completed")
-  const notStartedCourses = courses.filter((c) => c.status === "not-started")
+  const filteredCourses = courses.filter((c) => {
+    if (!query) return true
+    return (
+      c.name.toLowerCase().includes(query) ||
+      c.instructor.toLowerCase().includes(query) ||
+      c.category.toLowerCase().includes(query)
+    )
+  })
+
+  const inProgressCourses = filteredCourses.filter((c) => c.status === "in-progress")
+  const completedCourses = filteredCourses.filter((c) => c.status === "completed")
+  const notStartedCourses = filteredCourses.filter((c) => c.status === "not-started")
+  const showInProgress = tab === "all" || tab === "in-progress"
+  const showCompleted = tab === "all" || tab === "completed"
+  const showNotStarted = tab === "all" || tab === "not-started"
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -108,28 +197,30 @@ export default async function MyCoursesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            الكل ({courses.length})
-          </button>
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <Link href={`/dashboard/student/my-courses?tab=all${query ? `&q=${encodeURIComponent(query)}` : ""}`} className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${tab === "all" ? "text-amber-700 bg-amber-50 border-amber-200" : "text-gray-700 bg-white border-gray-200 hover:bg-gray-50"}`}>
+            الكل ({filteredCourses.length})
+          </Link>
+          <Link href={`/dashboard/student/my-courses?tab=in-progress${query ? `&q=${encodeURIComponent(query)}` : ""}`} className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${tab === "in-progress" ? "text-amber-700 bg-amber-50 border-amber-200" : "text-gray-700 bg-white border-gray-200 hover:bg-gray-50"}`}>
             قيد التنفيذ ({inProgressCourses.length})
-          </button>
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          </Link>
+          <Link href={`/dashboard/student/my-courses?tab=completed${query ? `&q=${encodeURIComponent(query)}` : ""}`} className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${tab === "completed" ? "text-amber-700 bg-amber-50 border-amber-200" : "text-gray-700 bg-white border-gray-200 hover:bg-gray-50"}`}>
             مكتملة ({completedCourses.length})
-          </button>
+          </Link>
         </div>
-        <div className="relative w-full sm:w-auto">
+        <form className="relative w-full sm:w-auto" method="get">
+          <input type="hidden" name="tab" value={tab} />
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
-            type="text"
+            name="q"
+            defaultValue={query}
             placeholder="ابحث عن دورة..."
             className="w-full sm:w-64 pr-10 pl-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
           />
-        </div>
+        </form>
       </div>
 
       {/* In Progress Courses */}
-      {inProgressCourses.length > 0 && (
+      {showInProgress && inProgressCourses.length > 0 && (
         <DashboardContentCard
           title="قيد التنفيذ"
           description={`${inProgressCourses.length} دورة قيد التعلم`}
@@ -139,7 +230,7 @@ export default async function MyCoursesPage() {
             {inProgressCourses.map((course) => (
               <Link
                 key={course.id}
-                href={`/courses/${course.id}`}
+                href={`/dashboard/student/learning/${course.id}`}
                 className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300"
               >
                 <div className="flex flex-col">
@@ -180,7 +271,10 @@ export default async function MyCoursesPage() {
                         <Clock className="h-3 w-3" />
                         {course.completedLessons}/{course.totalLessons} دروس
                       </span>
-                      <span>{course.lastAccessed}</span>
+                      <span>آخر نشاط: {course.lastAccessed}</span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      بدأت: {course.startedAtLabel}
                     </div>
                   </div>
                 </div>
@@ -191,7 +285,7 @@ export default async function MyCoursesPage() {
       )}
 
       {/* Completed Courses */}
-      {completedCourses.length > 0 && (
+      {showCompleted && completedCourses.length > 0 && (
         <DashboardContentCard
           title="مكتملة"
           description={`${completedCourses.length} دورة مكتملة`}
@@ -201,7 +295,7 @@ export default async function MyCoursesPage() {
             {completedCourses.map((course) => (
               <Link
                 key={course.id}
-                href={`/courses/${course.id}`}
+                href={`/dashboard/student/learning/${course.id}`}
                 className="group relative overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300"
               >
                 <div className="flex flex-col">
@@ -245,6 +339,9 @@ export default async function MyCoursesPage() {
                         {course.totalLessons} درس مكتمل
                       </span>
                     </div>
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      بدأت: {course.startedAtLabel}
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -254,7 +351,7 @@ export default async function MyCoursesPage() {
       )}
 
       {/* Not Started Courses */}
-      {notStartedCourses.length > 0 && (
+      {showNotStarted && notStartedCourses.length > 0 && (
         <DashboardContentCard
           title="لم تبدأ بعد"
           description={`${notStartedCourses.length} دورة جاهزة للبدء`}
@@ -264,7 +361,7 @@ export default async function MyCoursesPage() {
             {notStartedCourses.map((course) => (
               <Link
                 key={course.id}
-                href={course.orderStatus === "PENDING" ? "#" : `/courses/${course.id}`}
+                href={course.orderStatus === "PENDING" ? "#" : `/dashboard/student/learning/${course.id}`}
                 aria-disabled={course.orderStatus === "PENDING"}
                 className={`group relative overflow-hidden border border-gray-200 rounded-xl transition-all duration-300 ${
                   course.orderStatus === "PENDING"
@@ -316,6 +413,9 @@ export default async function MyCoursesPage() {
                       >
                         {course.orderStatus === "PENDING" ? "بانتظار تأكيد الطلب" : "ابدأ الآن"}
                       </span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      بدأت: {course.startedAtLabel}
                     </div>
                   </div>
                 </div>

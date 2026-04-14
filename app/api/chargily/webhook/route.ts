@@ -66,10 +66,24 @@ export async function POST(req: Request) {
       }
       // Activate the course for the student: set order to CONFIRMED so they get access
       // (learning page and "my courses" use Order.status === 'CONFIRMED' to grant access)
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: 'CONFIRMED' },
-      })
+      try {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'CONFIRMED' },
+        })
+      } catch (e: unknown) {
+        // If another CONFIRMED order already exists for this user/course, treat as idempotent.
+        if (
+          typeof e === 'object' &&
+          e &&
+          'code' in e &&
+          typeof (e as { code?: unknown }).code === 'string' &&
+          (e as { code: string }).code === 'P2002'
+        ) {
+          return new NextResponse(null, { status: 200 })
+        }
+        throw e
+      }
     } catch (e) {
       console.error('Chargily webhook: failed to update order', orderId, e)
       return NextResponse.json({ error: 'Update failed' }, { status: 500 })

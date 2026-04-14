@@ -1,8 +1,6 @@
 import Link from 'next/link'
 import { CheckCircle2 } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
-import { getUserSession } from '@/lib/user-session'
-import { prisma } from '@/lib/db'
 
 type Props = {
   searchParams: Promise<{ order_id?: string }>
@@ -11,21 +9,6 @@ type Props = {
 export default async function PaymentSuccessPage({ searchParams }: Props) {
   const params = await searchParams
   const orderId = typeof params.order_id === 'string' ? params.order_id : undefined
-
-  if (orderId) {
-    const session = await getUserSession()
-    if (session?.role === 'STUDENT') {
-      const order = await prisma.order.findFirst({
-        where: { id: orderId, userId: session.userId, status: 'PENDING' },
-      })
-      if (order) {
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'CONFIRMED' },
-        })
-      }
-    }
-  }
 
   return (
     <div className="min-h-svh flex flex-col items-center justify-center p-6 bg-gray-50" dir="rtl">
@@ -42,7 +25,7 @@ export default async function PaymentSuccessPage({ searchParams }: Props) {
           />
         </h1>
         <p className="text-gray-600">
-          تم استلام دفعتك. تم تفعيل الدورة على حسابك ويمكنك البدء بالتعلم من لوحة التحكم.
+          تم استلام دفعتك. يجري تأكيد العملية تلقائياً عبر نظام الدفع، وستظهر الدورة في حسابك فور اكتمال التأكيد.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
           <Link

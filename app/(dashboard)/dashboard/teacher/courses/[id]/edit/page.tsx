@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CreateCourseForm } from '@/components/teacher/create-course-form'
 import type { CourseFormData, ContentItem } from '@/components/teacher/create-course-form'
+import { EMPTY_SALES_PAGE_DATA, type SalesPageData } from '@/lib/course-sales'
 
 type CourseApi = {
   id: string
@@ -18,6 +19,7 @@ type CourseApi = {
   language: string | null
   description: string | null
   learningOutcomes: string[]
+  salesPageData?: SalesPageData | null
   status: string
   sections: {
     id: string
@@ -51,6 +53,7 @@ function mapApiToFormData(c: CourseApi): CourseFormData {
     language: c.language ?? 'العربية',
     description: c.description ?? '',
     learningOutcomes: Array.isArray(c.learningOutcomes) && c.learningOutcomes.length > 0 ? c.learningOutcomes : [''],
+    salesPageData: c.salesPageData ?? EMPTY_SALES_PAGE_DATA,
     sections: c.sections.map((sec) => ({
       id: sec.id,
       title: sec.title,

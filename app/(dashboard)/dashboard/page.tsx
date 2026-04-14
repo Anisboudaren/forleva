@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation'
+import { getUserSession } from '@/lib/user-session'
 
-// This page redirects to the appropriate dashboard based on user type
-// In production, you would check the user's role from your auth system
-export default function Dashboard() {
-  // TODO: Get user type from authentication context/session
-  // For now, defaulting to student dashboard
-  // You can implement logic to check user role and redirect accordingly
-  
-  // Example: Check localStorage or session for user type
-  // const userType = getUserType() // 'student' | 'teacher'
-  
+// Redirect to the right dashboard based on signed session cookie.
+export default async function Dashboard() {
+  const session = await getUserSession()
+  if (!session) {
+    redirect('/login')
+  }
+  if (session.role === 'TEACHER') {
+    redirect('/dashboard/teacher')
+  }
   redirect('/dashboard/student')
 }

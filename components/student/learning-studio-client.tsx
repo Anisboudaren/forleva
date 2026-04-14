@@ -1,8 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from "react"
-import { Play, BookOpen, Clock, CheckCircle2, HelpCircle, ExternalLink, FileText, Award, Headphones, CheckSquare, MessageSquare } from "lucide-react"
-import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Play, BookOpen, Clock, CheckCircle2, HelpCircle, ExternalLink, FileText, Award, Headphones, CheckSquare, MessageSquare, Loader2 } from "lucide-react"
 import { MuxVideoPlayer, isMuxPlaybackUrl } from "@/components/mux-video-player"
 
 type CourseSectionItem = {
@@ -68,6 +67,21 @@ type Props = {
   course: Course
 }
 
+type ProgressResponse = {
+  courseId: string
+  lastActivityAt: string | null
+  nextItem:
+    | { id: string; title: string; type: string; sectionTitle: string }
+    | null
+  items: Array<{
+    id: string
+    startedAt: string | null
+    lastViewedAt: string | null
+    completedAt: string | null
+    progressPercent: number | null
+  }>
+}
+
 export default function LearningStudioClient({ course }: Props) {
   const topRef = useRef<HTMLDivElement | null>(null)
   const flatItems = useMemo(
@@ -87,6 +101,135 @@ export default function LearningStudioClient({ course }: Props) {
   )
 
   const activeItem = flatItems.find((i) => i.id === activeItemId) ?? flatItems[0]
+
+  const [progressLoading, setProgressLoading] = useState(true)
+  const [progressError, setProgressError] = useState<string | null>(null)
+  const [completedItemIds, setCompletedItemIds] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [noteText, setNoteText] = useState("")
+  const [noteStatus, setNoteStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+
+  useEffect(() => {
+    let cancelled = false
+    setProgressLoading(true)
+    setProgressError(null)
+
+    fetch(`/api/student/progress?courseId=${encodeURIComponent(course.id)}`, {
+      credentials: "include",
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => null)
+          throw new Error(data?.error || "فشل تحميل التقدم")
+        }
+        return res.json() as Promise<ProgressResponse>
+      })
+      .then((data) => {
+        if (cancelled) return
+        const completed = new Set(
+          (data.items ?? []).filter((i) => i.completedAt).map((i) => i.id)
+        )
+        setCompletedItemIds(completed)
+      })
+      .catch((e) => {
+        if (!cancelled) setProgressError(e?.message || "حدث خطأ")
+      })
+      .finally(() => {
+        if (!cancelled) setProgressLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [course.id])
+
+  useEffect(() => {
+    if (!activeItemId) return
+    // Mark as viewed (best-effort; do not block UI)
+    fetch("/api/student/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ courseId: course.id, itemId: activeItemId, action: "view" }),
+    }).catch(() => {})
+  }, [activeItemId, course.id])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!activeItemId) return
+    fetch(`/api/student/notes?courseId=${encodeURIComponent(course.id)}&itemId=${encodeURIComponent(activeItemId)}`, {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : { content: "" }))
+      .then((data) => {
+        if (cancelled) return
+        setNoteText(typeof data?.content === "string" ? data.content : "")
+        setNoteStatus("idle")
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNoteText("")
+          setNoteStatus("error")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [course.id, activeItemId])
+
+  useEffect(() => {
+    if (!activeItemId) return
+    const t = setTimeout(() => {
+      setNoteStatus("saving")
+      fetch("/api/student/notes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ courseId: course.id, itemId: activeItemId, content: noteText }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error()
+          setNoteStatus("saved")
+        })
+        .catch(() => setNoteStatus("error"))
+    }, 700)
+    return () => clearTimeout(t)
+  }, [course.id, activeItemId, noteText])
+
+  const isActiveCompleted = Boolean(activeItemId && completedItemIds.has(activeItemId))
+
+  const markActiveCompleted = async () => {
+    if (!activeItemId || isActiveCompleted || saving) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/student/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ courseId: course.id, itemId: activeItemId, action: "complete" }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "فشل حفظ التقدم")
+      }
+      setCompletedItemIds((prev) => {
+        const next = new Set(prev)
+        next.add(activeItemId)
+        return next
+      })
+    } catch (e: unknown) {
+      const msg =
+        typeof e === "object" &&
+        e &&
+        "message" in e &&
+        typeof (e as { message?: unknown }).message === "string"
+          ? (e as { message: string }).message
+          : null
+      setProgressError(msg || "حدث خطأ")
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const activeEmbedUrl = useMemo(() => {
     if (!activeItem) return null
@@ -160,6 +303,35 @@ export default function LearningStudioClient({ course }: Props) {
                 </span>
               )}
             </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={markActiveCompleted}
+                disabled={!activeItemId || isActiveCompleted || saving}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  isActiveCompleted
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className={`h-4 w-4 ${isActiveCompleted ? "text-emerald-600" : "text-white"}`} />
+                )}
+                <span>{isActiveCompleted ? "تم إكمال الدرس" : "وضع علامة مكتمل"}</span>
+              </button>
+
+              {progressLoading ? (
+                <span className="text-xs text-gray-500 inline-flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  جارٍ تحميل التقدم...
+                </span>
+              ) : progressError ? (
+                <span className="text-xs text-red-600">{progressError}</span>
+              ) : null}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5 flex flex-col gap-3">
@@ -170,12 +342,20 @@ export default function LearningStudioClient({ course }: Props) {
               </p>
             </div>
             <p className="text-xs text-gray-500">
-              اكتب ملاحظاتك وأفكارك أثناء التعلم. (سيتم حفظها في جهازك فقط في هذه النسخة)
+              اكتب ملاحظاتك وأفكارك أثناء التعلم.
             </p>
             <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
               className="mt-1 min-h-[120px] w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               placeholder="اكتب ملاحظاتك هنا..."
             />
+            <p className="text-xs text-gray-500">
+              {noteStatus === "saving" && "جارٍ حفظ الملاحظات..."}
+              {noteStatus === "saved" && "تم حفظ الملاحظات"}
+              {noteStatus === "error" && "تعذّر حفظ الملاحظات"}
+              {noteStatus === "idle" && "يتم حفظ الملاحظات تلقائياً"}
+            </p>
           </div>
         </div>
       </div>
@@ -200,6 +380,7 @@ export default function LearningStudioClient({ course }: Props) {
               <ul className="divide-y divide-gray-100">
                 {section.items.map((item) => {
                   const isActive = item.id === activeItem?.id
+                  const isCompleted = completedItemIds.has(item.id)
                   const typeInfo =
                     lessonTypes[item.type] ??
                     lessonTypes[item.type.toUpperCase()] ??
@@ -238,6 +419,9 @@ export default function LearningStudioClient({ course }: Props) {
                             </p>
                           </div>
                         </div>
+                        {isCompleted && (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                        )}
                       </button>
                     </li>
                   )

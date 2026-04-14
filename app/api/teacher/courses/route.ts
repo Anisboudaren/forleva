@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
+import { normalizeSalesPageData } from '@/lib/course-sales'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
       language,
       description,
       learningOutcomes,
+      salesPageData,
       sections = [],
       status = 'DRAFT',
     } = body as {
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
       language?: string
       description?: string
       learningOutcomes?: string[]
+      salesPageData?: unknown
       sections?: ApiSection[]
       status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
     }
@@ -150,6 +153,7 @@ export async function POST(request: NextRequest) {
     const outcomes = Array.isArray(learningOutcomes)
       ? learningOutcomes.filter((o): o is string => typeof o === 'string')
       : []
+    const normalizedSalesPageData = normalizeSalesPageData(salesPageData)
     // Teachers cannot set PUBLISHED directly; map to PENDING_REVIEW for admin approval.
     const statusEnum: CourseStatus =
       status === 'PUBLISHED'
@@ -171,6 +175,7 @@ export async function POST(request: NextRequest) {
       language: language && String(language).trim() ? String(language).trim() : null,
       description: description && String(description).trim() ? String(description).trim() : null,
       learningOutcomes: outcomes,
+      salesPageData: normalizedSalesPageData ?? undefined,
       sections: {
         create: (sections as ApiSection[]).map((sec, pos) => ({
           title: (sec.title && String(sec.title).trim()) || 'قسم',

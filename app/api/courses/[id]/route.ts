@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { normalizeSalesPageData } from '@/lib/course-sales'
 
 /**
  * Public API: get a single published course by ID (no auth).
@@ -45,6 +46,7 @@ export async function GET(
       language: course.language,
       description: course.description,
       learningOutcomes,
+      salesPageData: normalizeSalesPageData(course.salesPageData),
       teacher: course.teacher
         ? { id: course.teacher.id, fullName: course.teacher.fullName ?? 'مدرّس' }
         : null,
