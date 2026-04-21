@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@chargily/chargily-pay':
-        specifier: ^2.1.0
-        version: 2.1.0
       '@lottiefiles/dotlottie-react':
         specifier: ^0.17.12
         version: 0.17.12(react@19.2.0)
@@ -359,9 +356,6 @@ packages:
   '@babel/types@7.28.5':
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
-
-  '@chargily/chargily-pay@2.1.0':
-    resolution: {integrity: sha512-BMmvgowoZN2ETqNcSTle7VIVX4wHYvxTzk1Cu3o1TV+1Lj2P1hznIo6dgj7Die9ALUsBAnSR+SjuhYsrN1LlPw==}
 
   '@chevrotain/cst-dts-gen@10.5.0':
     resolution: {integrity: sha512-lhmC/FyqQ2o7pGK4Om+hzuDrm9rhFYIJ/AXoQBeongmn870Xeb0L6oGEiuR8nohFNL5sMaQEJWCxr1oIVIVXrw==}
@@ -4540,8 +4534,6 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
-
-  '@chargily/chargily-pay@2.1.0': {}
 
   '@chevrotain/cst-dts-gen@10.5.0':
     dependencies:
