@@ -28,8 +28,8 @@ export async function GET(req: Request) {
     return jsonError("لا تملك وصولاً لهذه الدورة", 403)
   }
 
-  const note = await prisma.courseNote.findUnique({
-    where: { userId_courseId_itemId: { userId: session.userId, courseId, itemId } },
+  const note = await prisma.courseNote.findFirst({
+    where: { userId: session.userId, courseId, itemId },
     select: { content: true, updatedAt: true },
   })
   return NextResponse.json({ content: note?.content ?? "", updatedAt: note?.updatedAt ?? null })
@@ -57,11 +57,19 @@ export async function PUT(req: Request) {
     return jsonError("لا تملك وصولاً لهذه الدورة", 403)
   }
 
-  const note = await prisma.courseNote.upsert({
-    where: { userId_courseId_itemId: { userId: session.userId, courseId, itemId } },
-    create: { userId: session.userId, courseId, itemId, content },
-    update: { content },
-    select: { content: true, updatedAt: true },
+  const existing = await prisma.courseNote.findFirst({
+    where: { userId: session.userId, courseId, itemId },
+    select: { id: true },
   })
+  const note = existing
+    ? await prisma.courseNote.update({
+        where: { id: existing.id },
+        data: { content },
+        select: { content: true, updatedAt: true },
+      })
+    : await prisma.courseNote.create({
+        data: { userId: session.userId, courseId, itemId, content },
+        select: { content: true, updatedAt: true },
+      })
   return NextResponse.json(note)
 }

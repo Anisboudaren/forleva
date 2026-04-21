@@ -1,5 +1,5 @@
+import { Prisma, type AuditActorRole } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import type { AuditActorRole } from '@prisma/client'
 import type { AuditActionCode } from '@/lib/audit-actions'
 
 type CreateAuditLogArgs = {
@@ -27,7 +27,7 @@ export async function createAuditLog({
         action,
         entityType,
         entityId: entityId ?? null,
-        meta: meta ?? undefined,
+        meta: meta !== undefined ? (meta as Prisma.InputJsonValue) : undefined,
       },
     })
   } catch (e) {

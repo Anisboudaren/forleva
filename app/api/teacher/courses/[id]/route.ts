@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
@@ -195,7 +196,10 @@ export async function PATCH(
           ...(body.language !== undefined && { language: body.language ? String(body.language).trim() : null }),
           ...(body.description !== undefined && { description: body.description ? String(body.description).trim() : null }),
           ...(Array.isArray(body.learningOutcomes) && { learningOutcomes: body.learningOutcomes }),
-          ...(body.salesPageData !== undefined && { salesPageData: normalizedSalesPageData }),
+          ...(body.salesPageData !== undefined && {
+            salesPageData:
+              normalizedSalesPageData === null ? Prisma.JsonNull : normalizedSalesPageData,
+          }),
         },
         include: {
           sections: { orderBy: { position: 'asc' }, include: { items: { orderBy: { position: 'asc' } } } },
@@ -251,7 +255,8 @@ export async function PATCH(
       language: body.language !== undefined ? (body.language ? String(body.language).trim() : null) : existing.language,
       description: body.description !== undefined ? (body.description ? String(body.description).trim() : null) : existing.description,
       learningOutcomes,
-      salesPageData: normalizedSalesPageData,
+      salesPageData:
+        normalizedSalesPageData === null ? Prisma.JsonNull : normalizedSalesPageData,
       ...(sections
         ? {
             sections: {

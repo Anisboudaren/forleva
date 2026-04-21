@@ -79,3 +79,13 @@
 {"sessionId":"f2017b","runId":"run1","hypothesisId":"H5","location":"app/api/courses/route.ts:53","message":"api courses db result count","data":{"resultCount":1,"hasQuery":false},"timestamp":1776076449410}
 {"sessionId":"f2017b","runId":"run1","hypothesisId":"H5","location":"app/api/courses/route.ts:18","message":"api courses query params parsed","data":{"hasQuery":false,"queryLength":0,"take":1},"timestamp":1776076449426}
 {"sessionId":"f2017b","runId":"run1","hypothesisId":"H5","location":"app/api/courses/route.ts:53","message":"api courses db result count","data":{"resultCount":1,"hasQuery":false},"timestamp":1776076449554}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776695666120}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776695669973}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776696695370}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776696783280}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776701765792}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776703913785}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776704159038}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776714385517}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776714387733}
+{"sessionId":"f2017b","runId":"run1","hypothesisId":"H2","location":"components/header3/Header3.tsx:95","message":"search effect triggered","data":{"searchQuery":"","trimmedQuery":""},"timestamp":1776714387827}

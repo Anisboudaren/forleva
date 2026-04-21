@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/db'
 import { getUserSession } from '@/lib/user-session'
 
@@ -8,6 +9,8 @@ export const runtime = 'nodejs'
 const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024 // 500MB hard limit
 const ALLOWED_MIME_PREFIX = 'video/'
 const MAX_NAME_LENGTH = 120
+const SANDBOX_BYPASS_HEADER = 'x-vimeo-sandbox-test'
+const DEFAULT_MAX_DURATION_SECONDS = 60 * 60 * 4 // 4h fallback
 
 // Very simple in-memory rate limiting per user (best-effort, not perfect across serverless instances).
 // Limits each teacher to 5 uploads per rolling 10 minutes.
@@ -15,6 +18,96 @@ type UploadWindow = { timestamps: number[] }
 const uploadWindows = new Map<string, UploadWindow>()
 const UPLOAD_LIMIT = 5
 const WINDOW_MS = 10 * 60 * 1000
+
+type VimeoApiErrorData = {
+  status: number
+  error?: string
+  developerMessage?: string
+  invalidParameters?: unknown
+  requestId?: string | null
+  rawBody?: string
+}
+
+class VimeoApiError extends Error {
+  status: number
+  error?: string
+  developerMessage?: string
+  invalidParameters?: unknown
+  requestId?: string | null
+  rawBody?: string
+
+  constructor(message: string, data: VimeoApiErrorData) {
+    super(message)
+    this.name = 'VimeoApiError'
+    this.status = data.status
+    this.error = data.error
+    this.developerMessage = data.developerMessage
+    this.invalidParameters = data.invalidParameters
+    this.requestId = data.requestId
+    this.rawBody = data.rawBody
+  }
+}
+
+type UploadLimits = {
+  maxSizeBytes: number
+  acceptedMimePrefix: string
+  maxNameLength: number
+  maxDurationSec: number
+}
+
+function getUploadLimits(): UploadLimits {
+  const envMaxDuration = Number(process.env.VIMEO_MAX_DURATION_SEC)
+  return {
+    maxSizeBytes: MAX_VIDEO_SIZE_BYTES,
+    acceptedMimePrefix: ALLOWED_MIME_PREFIX,
+    maxNameLength: MAX_NAME_LENGTH,
+    maxDurationSec:
+      Number.isFinite(envMaxDuration) && envMaxDuration > 0
+        ? Math.floor(envMaxDuration)
+        : DEFAULT_MAX_DURATION_SECONDS,
+  }
+}
+
+function mapVimeoErrorCode(err: VimeoApiError): string {
+  const combined = `${err.error ?? ''} ${err.developerMessage ?? ''}`.toLowerCase()
+  if (err.status === 401 || combined.includes('invalid token') || combined.includes('access token')) {
+    return 'VIMEO_TOKEN_INVALID'
+  }
+  if (combined.includes('scope') && combined.includes('upload')) {
+    return 'VIMEO_SCOPE_MISSING_UPLOAD'
+  }
+  if (err.status === 403) {
+    return 'VIMEO_FORBIDDEN_ACCOUNT'
+  }
+  return 'VIMEO_UPLOAD_PROVIDER_FAILED'
+}
+
+async function parseVimeoError(res: Response): Promise<VimeoApiError> {
+  const requestId = res.headers.get('x-request-id') ?? res.headers.get('x-b3-traceid')
+  const raw = await res.text().catch(() => '')
+  let parsed: any = null
+  try {
+    parsed = raw ? JSON.parse(raw) : null
+  } catch {
+    parsed = null
+  }
+
+  const error = parsed?.error ?? parsed?.message
+  const developerMessage = parsed?.developer_message ?? parsed?.developerMessage
+  const invalidParameters = parsed?.invalid_parameters ?? parsed?.invalidParameters
+
+  return new VimeoApiError(
+    `Vimeo request failed with status ${res.status}`,
+    {
+      status: res.status,
+      error,
+      developerMessage,
+      invalidParameters,
+      requestId,
+      rawBody: raw || undefined,
+    }
+  )
+}
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
@@ -34,7 +127,7 @@ async function createVimeoUpload(
   token: string,
   fileSize: number,
   name: string
-): Promise<{ uploadLink: string; videoUri: string; videoUrl: string }> {
+): Promise<{ uploadLink: string; videoUri: string; videoUrl: string; embedUrl: string | null }> {
   const res = await fetch('https://api.vimeo.com/me/videos', {
     method: 'POST',
     headers: {
@@ -52,25 +145,26 @@ async function createVimeoUpload(
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Failed to initiate Vimeo upload: ${res.status} ${text}`)
+    throw await parseVimeoError(res)
   }
 
   const data = (await res.json()) as {
     upload?: { upload_link?: string }
     uri?: string
     link?: string
+    player_embed_url?: string
   }
 
   const uploadLink = data.upload?.upload_link
   const videoUri = data.uri
   const videoUrl = data.link
+  const embedUrl = data.player_embed_url ?? null
 
   if (!uploadLink || !videoUri || !videoUrl) {
     throw new Error('Vimeo response missing upload_link / uri / link')
   }
 
-  return { uploadLink, videoUri, videoUrl }
+  return { uploadLink, videoUri, videoUrl, embedUrl }
 }
 
 async function uploadToVimeoTus(
@@ -89,12 +183,11 @@ async function uploadToVimeoTus(
       'Content-Type': 'application/offset+octet-stream',
       'Content-Length': String(fileBuffer.byteLength),
     },
-    body: fileBuffer,
+    body: new Uint8Array(fileBuffer),
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Failed to upload video to Vimeo: ${res.status} ${text}`)
+    throw await parseVimeoError(res)
   }
 }
 
@@ -115,8 +208,7 @@ async function waitForTranscodeComplete(
     })
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`Failed to check Vimeo transcode status: ${res.status} ${text}`)
+      throw await parseVimeoError(res)
     }
 
     const data = (await res.json()) as {
@@ -137,33 +229,71 @@ async function waitForTranscodeComplete(
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getUserSession()
-  if (!session || session.role !== 'TEACHER') {
-    return NextResponse.json({ error: 'غير مصرح' }, { status: 401 })
+  const limits = getUploadLimits()
+  const requestId = randomUUID()
+  const sandboxBypassRequested = request.headers.get(SANDBOX_BYPASS_HEADER) === '1'
+  const sandboxBypassEnabled = process.env.NODE_ENV !== 'production' && sandboxBypassRequested
+
+  const session = sandboxBypassEnabled ? null : await getUserSession()
+  if (!sandboxBypassEnabled && !session) {
+    console.warn(`[vimeo-upload:${requestId}] Missing session`)
+    return NextResponse.json(
+      { ok: false, error: 'غير مصرح', code: 'AUTH_NO_SESSION', requestId, limits },
+      { status: 401 }
+    )
+  }
+  if (!sandboxBypassEnabled && session?.role !== 'TEACHER') {
+    console.warn(`[vimeo-upload:${requestId}] Invalid role`, { role: session?.role })
+    return NextResponse.json(
+      { ok: false, error: 'غير مصرح', code: 'AUTH_ROLE_NOT_TEACHER', requestId, limits },
+      { status: 403 }
+    )
   }
 
-  if (!checkRateLimit(session.userId)) {
+  const actorId = session?.userId ?? 'sandbox-anonymous'
+  if (!sandboxBypassEnabled && !checkRateLimit(actorId)) {
     return NextResponse.json(
-      { error: 'عدد كبير من عمليات الرفع، حاول لاحقاً' },
+      {
+        ok: false,
+        error: 'عدد كبير من عمليات الرفع، حاول لاحقاً',
+        code: 'RATE_LIMITED',
+        requestId,
+        limits,
+      },
       { status: 429 }
     )
   }
 
   const token = process.env.VIMEO_ACCESS_TOKEN
   if (!token) {
-    console.error('VIMEO_ACCESS_TOKEN is not configured')
+    console.error(`[vimeo-upload:${requestId}] VIMEO_ACCESS_TOKEN is not configured`)
     return NextResponse.json(
-      { error: 'إعدادات الفيديو غير مفعّلة حالياً' },
+      {
+        ok: false,
+        error: 'إعدادات الفيديو غير مفعّلة حالياً',
+        code: 'VIMEO_TOKEN_MISSING',
+        requestId,
+        limits,
+        provider: 'vimeo',
+      },
       { status: 500 }
     )
   }
 
   try {
+    console.info(`[vimeo-upload:${requestId}] request accepted`, {
+      mode: sandboxBypassEnabled ? 'sandbox-no-auth' : 'teacher-auth',
+    })
     const formData = await request.formData()
     const file = formData.get('file')
     const rawName = (formData.get('name') as string | null) ?? 'Course video'
     const name = rawName.trim().slice(0, MAX_NAME_LENGTH) || 'Course video'
     const courseId = formData.get('courseId') as string | null
+    const rawDurationSec = formData.get('durationSec')
+    const durationSec =
+      typeof rawDurationSec === 'string' && rawDurationSec.trim()
+        ? Number(rawDurationSec)
+        : null
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -171,6 +301,8 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: 'ملف الفيديو مطلوب',
           code: 'FILE_REQUIRED',
+          requestId,
+          limits,
         },
         { status: 400 }
       )
@@ -185,6 +317,8 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: 'يجب أن يكون الملف فيديو صالحاً',
           code: 'INVALID_FILE_TYPE',
+          requestId,
+          limits,
         },
         { status: 400 }
       )
@@ -196,6 +330,32 @@ export async function POST(request: NextRequest) {
           error: 'حجم الفيديو كبير جداً، الرجاء تقليصه',
           code: 'FILE_TOO_LARGE',
           maxSizeBytes: MAX_VIDEO_SIZE_BYTES,
+          requestId,
+          limits,
+        },
+        { status: 400 }
+      )
+    }
+    if (durationSec !== null && (!Number.isFinite(durationSec) || durationSec <= 0)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'مدة الفيديو غير صالحة',
+          code: 'INVALID_DURATION',
+          requestId,
+          limits,
+        },
+        { status: 400 }
+      )
+    }
+    if (durationSec !== null && durationSec > limits.maxDurationSec) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'مدة الفيديو أطول من الحد المسموح',
+          code: 'DURATION_TOO_LONG',
+          requestId,
+          limits,
         },
         { status: 400 }
       )
@@ -206,19 +366,22 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
 
     // 1) Create Vimeo upload and get TUS upload_link + video URI + public link
-    const { uploadLink, videoUri, videoUrl } = await createVimeoUpload(
+    console.info(`[vimeo-upload:${requestId}] creating Vimeo upload`)
+    const { uploadLink, videoUri, videoUrl, embedUrl } = await createVimeoUpload(
       token,
       buffer.byteLength,
       name
     )
 
     // 2) Upload file via TUS PATCH
+    console.info(`[vimeo-upload:${requestId}] uploading via TUS`, { bytes: buffer.byteLength })
     await uploadToVimeoTus(uploadLink, buffer, token)
 
     // 3) Optionally wait for transcode completion
+    console.info(`[vimeo-upload:${requestId}] polling transcode`, { videoUri })
     await waitForTranscodeComplete(token, videoUri).catch((err) => {
       // Log but don't fail the whole request; the video may still become playable.
-      console.warn('Vimeo transcode polling error:', err)
+      console.warn(`[vimeo-upload:${requestId}] Vimeo transcode polling error:`, err)
     })
 
     // 4) If a courseId is provided, update that course's main promo video URL immediately.
@@ -227,7 +390,7 @@ export async function POST(request: NextRequest) {
       const course = await prisma.course.findFirst({
         where: {
           id: courseId,
-          teacherId: session.userId,
+          teacherId: actorId,
         },
         select: { id: true },
       })
@@ -238,6 +401,8 @@ export async function POST(request: NextRequest) {
             ok: false,
             error: 'لم يتم العثور على الدورة',
             code: 'COURSE_NOT_FOUND',
+            requestId,
+            limits,
           },
           { status: 404 }
         )
@@ -256,6 +421,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       videoUrl,
+      embedUrl,
       vimeoId,
       provider: 'vimeo',
       upload: {
@@ -263,15 +429,46 @@ export async function POST(request: NextRequest) {
         sizeBytes: size,
         mimeType: mime,
       },
+      requestId,
+      limits,
+      mode: sandboxBypassEnabled ? 'sandbox-no-auth' : 'teacher-auth',
       courseId: updatedCourseId,
     })
   } catch (err) {
-    console.error('POST /api/vimeo/upload error', err)
+    if (err instanceof VimeoApiError) {
+      const code = mapVimeoErrorCode(err)
+      console.error(`[vimeo-upload:${requestId}] Vimeo provider error`, {
+        status: err.status,
+        code,
+        providerError: err.error,
+        providerDeveloperMessage: err.developerMessage,
+        providerRequestId: err.requestId,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'فشل الاتصال بخدمة Vimeo',
+          code,
+          requestId,
+          limits,
+          provider: 'vimeo',
+          providerStatus: err.status,
+          providerError: err.error ?? null,
+          providerDeveloperMessage: err.developerMessage ?? null,
+          providerRequestId: err.requestId ?? null,
+          providerInvalidParameters: err.invalidParameters ?? null,
+        },
+        { status: err.status >= 400 && err.status < 600 ? err.status : 502 }
+      )
+    }
+    console.error(`[vimeo-upload:${requestId}] POST /api/vimeo/upload error`, err)
     return NextResponse.json(
       {
         ok: false,
         error: 'فشل رفع الفيديو، حاول مرة أخرى',
         code: 'UPLOAD_FAILED',
+        requestId,
+        limits,
       },
       { status: 500 }
     )

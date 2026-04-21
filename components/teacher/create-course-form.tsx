@@ -39,6 +39,7 @@ import {
 import {
   EMPTY_SALES_PAGE_DATA,
   type SalesPageData,
+  type SalesBonusType,
   type FormationInfoItem,
   type SocialProofItem,
   type BeforeAfterItem,
@@ -818,10 +819,11 @@ export function CreateCourseForm({
       bonuses: form.salesPageData.bonuses
         .map((item) => {
           const priceNum = Number(item.price)
+          const bonusType: SalesBonusType = item.type === 'paid' ? 'paid' : 'free'
           return {
             title: item.title.trim(),
             description: item.description.trim(),
-            type: item.type === 'paid' ? 'paid' : 'free',
+            type: bonusType,
             price:
               item.type === 'paid' && Number.isFinite(priceNum) && priceNum > 0
                 ? Math.round(priceNum)

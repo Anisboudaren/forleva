@@ -167,7 +167,6 @@ export default function CoursesByCategoryPage() {
                         </div>
                       </div>
                     </motion.div>
-                  )
                 ))}
               </div>
             </>

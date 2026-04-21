@@ -21,7 +21,7 @@ function decodeRoleFromSignedCookie(cookieValue: string | undefined): string | n
   }
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Student/teacher dashboard pages
