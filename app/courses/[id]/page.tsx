@@ -6,7 +6,8 @@ import { useParams } from 'next/navigation'
 import { PopularCourses } from '@/components/popular-courses/PopularCourses'
 import { GradientText } from '@/components/text/gradient-text'
 import { EnrollDialog, getEnrolledCourseIds } from '@/components/enroll-dialog'
-import { MuxVideoPlayer, isMuxPlaybackUrl } from '@/components/mux-video-player'
+import { VimeoVideoPlayer } from '@/components/vimeo-video-player'
+import { isVimeoUrl } from '@/lib/vimeo'
 import {
   Play, FileText, ExternalLink, FileCheck, Headphones,
   CheckCircle2, Award, BookOpen, CheckSquare, MessageSquare,
@@ -127,13 +128,6 @@ function getFallbackSalesData(course: CourseData): SalesPageData {
       { title: 'تحديثات مستقبلية', description: 'وصول لأي تحسينات أو إضافات جديدة على نفس الدورة.', type: 'free' },
     ],
   }
-}
-
-function youtubeWatchToEmbed(url: string | undefined): string | null {
-  if (!url || !url.includes('youtube')) return null
-  const match = url.match(/[?&]v=([^&]+)/)
-  const id = match ? match[1] : null
-  return id ? `https://www.youtube-nocookie.com/embed/${id}` : null
 }
 
 export default function CoursePage() {
@@ -368,13 +362,15 @@ export default function CoursePage() {
       .finally(() => setReplySubmittingId(null))
   }
 
-  const introEmbedUrl = useMemo(() => {
+  const introVimeoUrl = useMemo(() => {
+    const main = course?.videoUrl?.trim()
+    if (main && isVimeoUrl(main)) return main
     if (!course?.sections?.length) return null
     for (const sec of course.sections) {
       for (const item of sec.items) {
         if ((item.type === 'VIDEO' || item.type === 'video') && item.url) {
-          const embed = youtubeWatchToEmbed(item.url)
-          if (embed) return embed
+          const url = item.url.trim()
+          if (isVimeoUrl(url)) return url
         }
       }
     }
@@ -477,27 +473,13 @@ export default function CoursePage() {
                 )}
               </div>
 
-              {course.videoUrl && isMuxPlaybackUrl(course.videoUrl) && (
+              {introVimeoUrl && (
                 <div className='mb-6 rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg'>
-                  <MuxVideoPlayer
-                    playbackUrlOrId={course.videoUrl}
+                  <VimeoVideoPlayer
+                    videoUrl={introVimeoUrl!}
                     title={`مقدمة - ${course.title}`}
                     className='w-full'
                   />
-                </div>
-              )}
-              {!course.videoUrl && introEmbedUrl && (
-                <div className='rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg'>
-                  <div className='relative w-full' style={{ paddingBottom: '56.25%' }}>
-                    <iframe
-                      className='absolute top-0 left-0 w-full h-full'
-                      src={`${introEmbedUrl}?rel=0&modestbranding=1&playsinline=1`}
-                      title={`مقدمة - ${course.title}`}
-                      allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
-                      referrerPolicy='strict-origin-when-cross-origin'
-                      allowFullScreen
-                    />
-                  </div>
                 </div>
               )}
             </div>

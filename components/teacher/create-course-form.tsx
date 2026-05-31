@@ -45,6 +45,7 @@ import {
   type BeforeAfterItem,
   type BonusItem,
 } from '@/lib/course-sales'
+import { runVimeoUpload } from '@/lib/vimeo-upload-client'
 
 export type ContentType =
   | 'video'
@@ -89,7 +90,7 @@ export interface CourseFormData {
   category: string
   price: string
   imageUrl: string
-  /** Main course presentation video (Mux HLS URL), shown on course page before purchase */
+  /** Main course presentation video (Vimeo URL), shown on course page before purchase */
   videoUrl?: string
   duration: string
   level: string
@@ -368,16 +369,16 @@ function ContentItemRow({
                   />
                 </div>
                 <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">رابط الفيديو</Label>
+                  <Label className="mb-2 block text-sm font-medium text-gray-700">رابط فيديو Vimeo</Label>
                   <Input
                     value={item.url ?? ''}
                     onChange={(e) => onUpdate(item.id, { url: e.target.value })}
-                    placeholder="https://..."
+                    placeholder="https://vimeo.com/..."
                     className="w-full"
                   />
                 </div>
                 <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رفع فيديو (Mux)</Label>
+                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رفع فيديو (Vimeo)</Label>
                   <input
                     type="file"
                     accept="video/*"
@@ -389,8 +390,8 @@ function ContentItemRow({
                       setSectionVideoUploading(true)
                       setSectionVideoError(null)
                       try {
-                        const playbackUrl = await onUploadVideo(file)
-                        if (playbackUrl) onUpdate(item.id, { url: playbackUrl })
+                        const videoUrl = await onUploadVideo(file)
+                        if (videoUrl) onUpdate(item.id, { url: videoUrl })
                         else setSectionVideoError('فشل رفع الفيديو')
                       } catch {
                         setSectionVideoError('فشل رفع الفيديو')
@@ -874,7 +875,7 @@ export function CreateCourseForm({
   const formRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
 
-  // Mux presentation video upload state
+  // Vimeo presentation video upload state
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -887,42 +888,16 @@ export function CreateCourseForm({
     setUploadProgress(0)
   }
 
-  /** Run Mux direct upload: get URL, PUT file, poll until playback URL. Returns playbackUrl or null. */
-  const runMuxUpload = async (file: File, onProgress?: (pct: number) => void): Promise<string | null> => {
-    const createRes = await fetch('/api/mux/direct-upload', { method: 'POST' })
-    if (!createRes.ok) {
-      const err = await createRes.json().catch(() => ({})) as { error?: string }
-      throw new Error(err.error ?? 'فشل إنشاء الرفع')
-    }
-    const { url: uploadUrl, uploadId } = (await createRes.json()) as { url: string; uploadId: string }
-    if (!uploadUrl || !uploadId) return null
-
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
-      xhr.open('PUT', uploadUrl)
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 90))
-      }
-      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('فشل الرفع')))
-      xhr.onerror = () => reject(new Error('فشل الاتصال'))
-      xhr.send(file)
+  const runVimeoUploadForForm = async (
+    file: File,
+    onProgress?: (pct: number) => void
+  ): Promise<string | null> => {
+    const result = await runVimeoUpload(file, {
+      name: form.title.trim() || file.name,
+      courseId: mode === 'edit' ? courseId : undefined,
+      onProgress,
     })
-    onProgress?.(90)
-
-    const maxAttempts = 60
-    const delayMs = 2000
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, delayMs))
-      const statusRes = await fetch(`/api/mux/upload/${uploadId}/status`)
-      if (!statusRes.ok) continue
-      const data = (await statusRes.json()) as { status?: string; playbackUrl?: string }
-      if (data.playbackUrl) {
-        onProgress?.(100)
-        return data.playbackUrl
-      }
-      if (data.status === 'errored') return null
-    }
-    return null
+    return result.videoUrl
   }
 
   const handleVideoUpload = async () => {
@@ -931,9 +906,9 @@ export function CreateCourseForm({
     setUploadProgress(0)
     setUploadError(null)
     try {
-      const playbackUrl = await runMuxUpload(videoFile, setUploadProgress)
-      if (playbackUrl) {
-        update('videoUrl', playbackUrl)
+      const videoUrl = await runVimeoUploadForForm(videoFile, setUploadProgress)
+      if (videoUrl) {
+        update('videoUrl', videoUrl)
         setUploadProgress(100)
       } else {
         setUploadError('فشل رفع الفيديو أو انتهت مهلة المعالجة')
@@ -1243,10 +1218,10 @@ export function CreateCourseForm({
             </div>
             <div className="sm:col-span-2 lg:col-span-3 space-y-2">
               <Label className="mb-1 block">
-                فيديو تقديمي (Mux) — يظهر في الصفحة الرئيسية للدورة
+                فيديو تقديمي (Vimeo) — يظهر في الصفحة الرئيسية للدورة
               </Label>
               <p className="text-xs text-gray-500">
-                ارفع فيديو تعريفي قصير عن الدورة. سيتم حفظه في Mux وعرضه تلقائياً.
+                ارفع فيديو تعريفي قصير عن الدورة. سيتم حفظه في Vimeo وعرضه تلقائياً.
               </p>
               <input
                 type="file"
@@ -1263,7 +1238,7 @@ export function CreateCourseForm({
                   onClick={handleVideoUpload}
                   disabled={!videoFile || uploadingVideo || submitting}
                 >
-                  {uploadingVideo ? 'جاري رفع الفيديو...' : 'رفع الفيديو إلى Mux'}
+                  {uploadingVideo ? 'جاري الرفع والمعالجة...' : 'رفع الفيديو إلى Vimeo'}
                 </Button>
                 {uploadProgress > 0 && (
                   <div className="text-xs text-gray-600">
@@ -1644,7 +1619,7 @@ export function CreateCourseForm({
                         onRemove={(itemId) =>
                           removeContentItem(section.id, itemId)
                         }
-                        onUploadVideo={async (file) => runMuxUpload(file)}
+                        onUploadVideo={async (file) => runVimeoUploadForForm(file)}
                       />
                     ))}
                     <Button

@@ -1,7 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { getVimeoEmbedUrl } from '@/lib/vimeo'
+import Player from '@vimeo/player'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  getCleanVimeoEmbedUrl,
+  getVimeoEmbedUrl,
+  type VimeoCleanEmbedOptions,
+} from '@/lib/vimeo'
 
 type UploadResponse = {
   ok?: boolean
@@ -55,6 +60,61 @@ type ExistingVideoItem = {
   privacyEmbed: string | null
 }
 
+type CleanPlayerOptions = Required<VimeoCleanEmbedOptions>
+
+type PlayerDiagnostics = {
+  ready: boolean
+  lastEvent: string
+  durationSec: number | null
+  error: string | null
+}
+
+const DEFAULT_CLEAN_PLAYER_OPTIONS: CleanPlayerOptions = {
+  title: false,
+  byline: false,
+  portrait: false,
+  logo: false,
+  share: false,
+  controls: true,
+}
+
+const CLEAN_PLAYER_OPTION_LABELS: Array<{
+  key: keyof CleanPlayerOptions
+  label: string
+  description: string
+}> = [
+  {
+    key: 'title',
+    label: 'Title',
+    description: 'Show/hide the Vimeo video title.',
+  },
+  {
+    key: 'byline',
+    label: 'Byline',
+    description: 'Show/hide the Vimeo account name.',
+  },
+  {
+    key: 'portrait',
+    label: 'Portrait',
+    description: 'Show/hide the Vimeo account avatar.',
+  },
+  {
+    key: 'logo',
+    label: 'Vimeo logo',
+    description: 'Requires the Vimeo plan/embed settings to allow hiding it.',
+  },
+  {
+    key: 'share',
+    label: 'Share button',
+    description: 'Paid-plan embed option; account/video settings can still affect it.',
+  },
+  {
+    key: 'controls',
+    label: 'Player controls',
+    description: 'Keep enabled for normal course playback; disabling changes playback behavior.',
+  },
+]
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
@@ -103,6 +163,7 @@ function getActionHint(code?: string) {
 }
 
 export function VimeoUploadSandbox() {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('Sandbox upload')
   const [durationSec, setDurationSec] = useState<number | null>(null)
@@ -113,6 +174,13 @@ export function VimeoUploadSandbox() {
   const [loadingExistingVideos, setLoadingExistingVideos] = useState(true)
   const [existingVideosError, setExistingVideosError] = useState<string | null>(null)
   const [selectedExistingVideo, setSelectedExistingVideo] = useState<ExistingVideoItem | null>(null)
+  const [cleanOptions, setCleanOptions] = useState<CleanPlayerOptions>(DEFAULT_CLEAN_PLAYER_OPTIONS)
+  const [playerDiagnostics, setPlayerDiagnostics] = useState<PlayerDiagnostics>({
+    ready: false,
+    lastEvent: 'waiting-for-video',
+    durationSec: null,
+    error: null,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -148,9 +216,7 @@ export function VimeoUploadSandbox() {
           .filter((item): item is ExistingVideoItem => Boolean(item))
         if (!cancelled) {
           setExistingVideos(normalized)
-          if (!selectedExistingVideo && normalized.length > 0) {
-            setSelectedExistingVideo(normalized[0])
-          }
+          setSelectedExistingVideo((current) => current ?? normalized[0] ?? null)
         }
       } catch (e) {
         if (!cancelled) {
@@ -175,19 +241,69 @@ export function VimeoUploadSandbox() {
   )
   const embedUrl = selectedExistingVideo?.embedUrl ?? uploadedEmbedUrl
   const previewSrc = useMemo(() => {
-    if (!embedUrl) return null
-    try {
-      const url = new URL(embedUrl)
-      url.searchParams.set('title', '0')
-      url.searchParams.set('byline', '0')
-      url.searchParams.set('portrait', '0')
-      url.searchParams.set('dnt', '1')
-      return url.toString()
-    } catch {
-      const hasQuery = embedUrl.includes('?')
-      return `${embedUrl}${hasQuery ? '&' : '?'}title=0&byline=0&portrait=0&dnt=1`
+    return getCleanVimeoEmbedUrl(embedUrl, cleanOptions)
+  }, [cleanOptions, embedUrl])
+
+  useEffect(() => {
+    setPlayerDiagnostics({
+      ready: false,
+      lastEvent: previewSrc ? 'loading' : 'waiting-for-video',
+      durationSec: null,
+      error: null,
+    })
+
+    if (!previewSrc || !iframeRef.current) return
+
+    let disposed = false
+    const player = new Player(iframeRef.current)
+    const updateEvent = (lastEvent: string) => {
+      if (disposed) return
+      setPlayerDiagnostics((current) => ({ ...current, lastEvent, error: null }))
     }
-  }, [embedUrl])
+    const handlePlay = () => updateEvent('play')
+    const handlePause = () => updateEvent('pause')
+    const handleEnded = () => updateEvent('ended')
+    const handleError = (sdkError: unknown) => {
+      if (disposed) return
+      setPlayerDiagnostics((current) => ({
+        ...current,
+        lastEvent: 'error',
+        error: sdkError instanceof Error ? sdkError.message : JSON.stringify(sdkError),
+      }))
+    }
+
+    player.on('play', handlePlay)
+    player.on('pause', handlePause)
+    player.on('ended', handleEnded)
+    player.on('error', handleError)
+
+    player
+      .ready()
+      .then(async () => {
+        if (disposed) return
+        const nextDuration = await player.getDuration().catch(() => null)
+        if (disposed) return
+        setPlayerDiagnostics({
+          ready: true,
+          lastEvent: 'loaded',
+          durationSec: typeof nextDuration === 'number' ? nextDuration : null,
+          error: null,
+        })
+      })
+      .catch(handleError)
+
+    return () => {
+      disposed = true
+      player.off('play', handlePlay)
+      player.off('pause', handlePause)
+      player.off('ended', handleEnded)
+      player.off('error', handleError)
+    }
+  }, [previewSrc])
+
+  const setCleanOption = (key: keyof CleanPlayerOptions, value: boolean) => {
+    setCleanOptions((current) => ({ ...current, [key]: value }))
+  }
 
   const submit = async () => {
     if (!file || uploading) return
@@ -371,19 +487,72 @@ export function VimeoUploadSandbox() {
 
       {previewSrc && (
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
-          <h2 className="text-base font-semibold text-gray-900">Playback preview</h2>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-gray-900">Clean Vimeo Player Test</h2>
+            <p className="text-xs text-gray-500">
+              هذا الاختبار يستخدم Vimeo embed parameters مع Player SDK للتأكد من شكل المشغل قبل تطبيقه
+              على صفحات الطلاب.
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {CLEAN_PLAYER_OPTION_LABELS.map((option) => {
+              const checked = cleanOptions[option.key]
+              return (
+                <label
+                  key={option.key}
+                  className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => setCleanOption(option.key, e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-medium text-gray-800">{option.label}</span>
+                    <span className="block text-xs text-gray-500">{option.description}</span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+
+          {!cleanOptions.controls && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              `controls=0` مفيد كتجربة فقط. Vimeo قد يفعّل autoplay/loop/muted ويزيل تحكم المستخدم،
+              لذلك الخيار الافتراضي للطلاب هو إبقاء controls مفعلة.
+            </p>
+          )}
+
           <p className="text-xs text-gray-500">
-            ملاحظة: إخفاء أزرار مثل Share / Like وروابط Vimeo يعتمد على إعدادات Vimeo وخطة الحساب، وليس
-            من المعلمات فقط.
+            ملاحظة: إخفاء أزرار مثل Share / Logo وشاشة النهاية يعتمد أيضاً على إعدادات الفيديو داخل
+            Vimeo وخطة الحساب، وليس على الكود فقط.
           </p>
+
+          <div className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 sm:grid-cols-2">
+            <p>SDK ready: {playerDiagnostics.ready ? 'yes' : 'no'}</p>
+            <p>Last event: {playerDiagnostics.lastEvent}</p>
+            <p>Duration: {playerDiagnostics.durationSec ? formatDuration(playerDiagnostics.durationSec) : '-'}</p>
+            <p>SDK error: {playerDiagnostics.error ?? '-'}</p>
+          </div>
+
           <div className="relative w-full overflow-hidden rounded-lg" style={{ paddingBottom: '56.25%' }}>
             <iframe
+              ref={iframeRef}
               className="absolute inset-0 h-full w-full"
               src={previewSrc}
-              title="Vimeo upload preview"
+              title="Clean Vimeo player preview"
               allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
               allowFullScreen
             />
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-700">Generated clean embed URL</p>
+            <code className="block overflow-x-auto rounded bg-gray-50 p-2 text-xs text-gray-700">
+              {previewSrc}
+            </code>
           </div>
         </section>
       )}

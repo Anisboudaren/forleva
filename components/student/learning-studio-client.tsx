@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Play, BookOpen, Clock, CheckCircle2, HelpCircle, ExternalLink, FileText, Award, Headphones, CheckSquare, MessageSquare, Loader2 } from "lucide-react"
-import { MuxVideoPlayer, isMuxPlaybackUrl } from "@/components/mux-video-player"
+import { VimeoVideoPlayer } from "@/components/vimeo-video-player"
+import { isVimeoUrl } from "@/lib/vimeo"
 
 type CourseSectionItem = {
   id: string
@@ -54,13 +55,6 @@ const lessonTypes: Record<
   EXERCISE: { icon: CheckSquare, label: "تمرين", color: "text-indigo-500" },
   AUDIO: { icon: Headphones, label: "صوتي", color: "text-pink-500" },
   CHECKLIST: { icon: CheckCircle2, label: "قائمة", color: "text-teal-500" },
-}
-
-function youtubeWatchToEmbed(url: string | undefined): string | null {
-  if (!url || !url.includes("youtube")) return null
-  const match = url.match(/[?&]v=([^&]+)/)
-  const id = match ? match[1] : null
-  return id ? `https://www.youtube-nocookie.com/embed/${id}` : null
 }
 
 type Props = {
@@ -231,18 +225,13 @@ export default function LearningStudioClient({ course }: Props) {
     }
   }
 
-  const activeEmbedUrl = useMemo(() => {
+  const activeVimeoUrl = useMemo(() => {
     if (!activeItem) return null
-    if (activeItem.type === "VIDEO" || activeItem.type === "video") {
-      return youtubeWatchToEmbed(activeItem.url)
-    }
-    return null
+    if (activeItem.type !== "VIDEO" && activeItem.type !== "video") return null
+    const url = activeItem.url?.trim()
+    if (!url || !isVimeoUrl(url)) return null
+    return url
   }, [activeItem])
-
-  const activeMuxUrl =
-    activeItem && (activeItem.type === "VIDEO" || activeItem.type === "video") && activeItem.url && isMuxPlaybackUrl(activeItem.url)
-      ? activeItem.url
-      : null
 
   return (
     <div
@@ -252,23 +241,23 @@ export default function LearningStudioClient({ course }: Props) {
       {/* Main learning area */}
       <div className="flex flex-col gap-4 md:gap-5">
         <div className="rounded-2xl border border-gray-200 bg-black/95 overflow-hidden shadow-lg">
-          {activeMuxUrl ? (
-            <MuxVideoPlayer
-              key={activeMuxUrl}
-              playbackUrlOrId={activeMuxUrl}
+          {activeVimeoUrl ? (
+            <VimeoVideoPlayer
+              key={activeVimeoUrl}
+              videoUrl={activeVimeoUrl}
               title={activeItem?.title ?? course.title}
-              className="w-full aspect-video"
+              className="w-full"
             />
-          ) : activeEmbedUrl ? (
+          ) : activeItem && (activeItem.type === "VIDEO" || activeItem.type === "video") ? (
             <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-              <iframe
-                className="absolute top-0 left-0 w-full h-full"
-                src={`${activeEmbedUrl}?rel=0&modestbranding=1&playsinline=1`}
-                title={activeItem?.title ?? course.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 text-center">
+                <Play className="h-10 w-10 text-amber-400" />
+                <p className="text-sm text-slate-100">
+                  {activeItem.url
+                    ? "رابط الفيديو غير مدعوم. استخدم رابط Vimeo صالحاً."
+                    : "ارفع فيديو Vimeo لهذا الدرس من لوحة المعلم."}
+                </p>
+              </div>
             </div>
           ) : (
             <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
