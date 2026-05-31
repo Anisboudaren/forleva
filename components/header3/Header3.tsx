@@ -92,9 +92,6 @@ export function Header3 () {
 
   useEffect(() => {
     const query = searchQuery.trim()
-    // #region agent log
-    fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H2',location:'components/header3/Header3.tsx:95',message:'search effect triggered',data:{searchQuery,trimmedQuery:query},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (!query) {
       setSearchResults([])
       setIsSearching(false)
@@ -105,9 +102,6 @@ export function Header3 () {
     const timer = window.setTimeout(async () => {
       setIsSearching(true)
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H3',location:'components/header3/Header3.tsx:108',message:'header search fetch start',data:{query},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const response = await fetch(`/api/courses?q=${encodeURIComponent(query)}&limit=5`, {
           signal: controller.signal,
         })
@@ -116,14 +110,8 @@ export function Header3 () {
           return
         }
         const data = await response.json()
-        // #region agent log
-        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H4',location:'components/header3/Header3.tsx:119',message:'header search fetch success',data:{ok:response.ok,status:response.status,resultCount:Array.isArray(data)?data.length:-1},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         setSearchResults(Array.isArray(data) ? data : [])
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H1',location:'components/header3/Header3.tsx:123',message:'header search fetch failed',data:{errorName:(error as Error).name,errorMessage:(error as Error).message},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if ((error as Error).name !== 'AbortError') {
           setSearchResults([])
         }

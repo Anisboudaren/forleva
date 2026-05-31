@@ -16,10 +16,6 @@ export async function GET(request: Request) {
         ? 5
         : 100
 
-    // #region agent log
-    fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H5',location:'app/api/courses/route.ts:18',message:'api courses query params parsed',data:{hasQuery:Boolean(query),queryLength:query?.length ?? 0,take},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     const courses = await prisma.course.findMany({
       where: {
         status: 'PUBLISHED',
@@ -51,9 +47,6 @@ export async function GET(request: Request) {
         teacher: { select: { fullName: true } },
       },
     })
-    // #region agent log
-    fetch('http://127.0.0.1:7467/ingest/cc5c563b-a5bd-4c98-8111-1f8af986f108',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f2017b'},body:JSON.stringify({sessionId:'f2017b',runId:'run1',hypothesisId:'H5',location:'app/api/courses/route.ts:53',message:'api courses db result count',data:{resultCount:courses.length,hasQuery:Boolean(query)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return NextResponse.json(
       courses.map((c) => ({
         id: c.id,
