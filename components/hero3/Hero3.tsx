@@ -1,18 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Rocket, Users, BookOpen } from 'lucide-react'
 
 const HERO_VIDEO_SRC = '/videos/hero-forleva.mp4'
-const HERO_POSTER_SRC = '/videos/hero-forleva-poster.png'
 
 export function Hero3 () {
   const [isLoaded, setIsLoaded] = useState(false)
-  const [videoFailed, setVideoFailed] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -21,7 +18,7 @@ export function Hero3 () {
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || videoFailed) return
+    if (!video) return
 
     const playVideo = () => {
       video.play().catch(() => {})
@@ -35,7 +32,7 @@ export function Hero3 () {
       video.removeEventListener('loadeddata', playVideo)
       video.removeEventListener('canplay', playVideo)
     }
-  }, [videoFailed])
+  }, [])
 
   const smoothScrollTo = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault()
@@ -173,34 +170,21 @@ export function Hero3 () {
             </motion.div>
           </motion.div>
 
-          {/* Video Section - Left side on desktop (RTL), shown first on mobile */}
+          {/* Video Section - same video on mobile and desktop */}
           <div className="relative w-full order-1 lg:order-2 flex items-center justify-center shrink-0">
-            <div className="relative w-full max-w-sm sm:max-w-md md:max-w-none aspect-square overflow-hidden rounded-lg">
-              {videoFailed ? (
-                <Image
-                  src={HERO_POSTER_SRC}
-                  alt="Forleva Hero"
-                  fill
-                  className="object-contain rounded-lg"
-                  priority
-                  sizes="(max-width: 640px) 384px, (max-width: 768px) 448px, 512px"
-                />
-              ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                  poster={HERO_POSTER_SRC}
-                  onError={() => setVideoFailed(true)}
-                  className="absolute inset-0 w-full h-full object-contain rounded-lg"
-                  aria-label="Forleva Hero Video"
-                >
-                  <source src={HERO_VIDEO_SRC} type="video/mp4" />
-                </video>
-              )}
+            <div className="relative w-full flex items-center justify-center overflow-hidden rounded-lg">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                className="w-full h-auto max-w-sm md:max-w-[110%] xl:max-w-[120%] mx-auto object-contain rounded-lg"
+                aria-label="Forleva Hero Video"
+              >
+                <source src={HERO_VIDEO_SRC} type="video/mp4" />
+              </video>
             </div>
           </div>
         </div>
