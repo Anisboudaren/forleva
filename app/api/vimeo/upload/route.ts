@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/db'
 import { getUserSession } from '@/lib/user-session'
+import {
+  logVimeoUploadError,
+  type VimeoUploadFailureDetails,
+} from '@/lib/vimeo-errors'
 
 // Ensure we run in the Node.js runtime (needed for Buffer, etc.)
 export const runtime = 'nodejs'
@@ -123,6 +127,15 @@ function checkRateLimit(userId: string): boolean {
   return true
 }
 
+function logAndReturnUploadFailure(
+  requestId: string,
+  status: number,
+  body: VimeoUploadFailureDetails & Record<string, unknown>
+) {
+  logVimeoUploadError('server', { requestId, httpStatus: status, ...body })
+  return NextResponse.json({ ok: false, requestId, ...body }, { status })
+}
+
 async function createVimeoUpload(
   token: string,
   fileSize: number,
@@ -236,48 +249,41 @@ export async function POST(request: NextRequest) {
 
   const session = sandboxBypassEnabled ? null : await getUserSession()
   if (!sandboxBypassEnabled && !session) {
-    console.warn(`[vimeo-upload:${requestId}] Missing session`)
-    return NextResponse.json(
-      { ok: false, error: 'غير مصرح', code: 'AUTH_NO_SESSION', requestId, limits },
-      { status: 401 }
-    )
+    return logAndReturnUploadFailure(requestId, 401, {
+      error: 'غير مصرح',
+      code: 'AUTH_NO_SESSION',
+      limits,
+      detail: 'No forleva_user_session cookie or invalid session',
+    })
   }
   if (!sandboxBypassEnabled && session?.role !== 'TEACHER') {
-    console.warn(`[vimeo-upload:${requestId}] Invalid role`, { role: session?.role })
-    return NextResponse.json(
-      { ok: false, error: 'غير مصرح', code: 'AUTH_ROLE_NOT_TEACHER', requestId, limits },
-      { status: 403 }
-    )
+    return logAndReturnUploadFailure(requestId, 403, {
+      error: 'غير مصرح',
+      code: 'AUTH_ROLE_NOT_TEACHER',
+      limits,
+      detail: `Session role is ${session?.role ?? 'unknown'}, expected TEACHER`,
+    })
   }
 
   const actorId = session?.userId ?? 'sandbox-anonymous'
   if (!sandboxBypassEnabled && !checkRateLimit(actorId)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'عدد كبير من عمليات الرفع، حاول لاحقاً',
-        code: 'RATE_LIMITED',
-        requestId,
-        limits,
-      },
-      { status: 429 }
-    )
+    return logAndReturnUploadFailure(requestId, 429, {
+      error: 'عدد كبير من عمليات الرفع، حاول لاحقاً',
+      code: 'RATE_LIMITED',
+      limits,
+      detail: `Teacher ${actorId} exceeded ${UPLOAD_LIMIT} uploads per ${WINDOW_MS / 60000} minutes`,
+    })
   }
 
   const token = process.env.VIMEO_ACCESS_TOKEN
   if (!token) {
-    console.error(`[vimeo-upload:${requestId}] VIMEO_ACCESS_TOKEN is not configured`)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'إعدادات الفيديو غير مفعّلة حالياً',
-        code: 'VIMEO_TOKEN_MISSING',
-        requestId,
-        limits,
-        provider: 'vimeo',
-      },
-      { status: 500 }
-    )
+    return logAndReturnUploadFailure(requestId, 500, {
+      error: 'إعدادات الفيديو غير مفعّلة حالياً',
+      code: 'VIMEO_TOKEN_MISSING',
+      limits,
+      provider: 'vimeo',
+      detail: 'VIMEO_ACCESS_TOKEN is not set in server environment',
+    })
   }
 
   try {
@@ -296,69 +302,61 @@ export async function POST(request: NextRequest) {
         : null
 
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'ملف الفيديو مطلوب',
-          code: 'FILE_REQUIRED',
-          requestId,
-          limits,
-        },
-        { status: 400 }
-      )
+      return logAndReturnUploadFailure(requestId, 400, {
+        error: 'ملف الفيديو مطلوب',
+        code: 'FILE_REQUIRED',
+        limits,
+        detail: 'formData field "file" missing or not a File',
+      })
     }
 
     const size = file.size
     const mime = file.type || ''
+    console.info(`[vimeo-upload:${requestId}] file received`, {
+      name: file.name,
+      sizeBytes: size,
+      mimeType: mime || '(empty)',
+      durationSec,
+      courseId: courseId ?? null,
+    })
 
     if (!mime.startsWith(ALLOWED_MIME_PREFIX)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'يجب أن يكون الملف فيديو صالحاً',
-          code: 'INVALID_FILE_TYPE',
-          requestId,
-          limits,
-        },
-        { status: 400 }
-      )
+      return logAndReturnUploadFailure(requestId, 400, {
+        error: 'يجب أن يكون الملف فيديو صالحاً',
+        code: 'INVALID_FILE_TYPE',
+        limits,
+        fileName: file.name,
+        fileSizeBytes: size,
+        mimeType: mime,
+        detail: `Expected mime starting with ${ALLOWED_MIME_PREFIX}`,
+      })
     }
     if (size <= 0 || size > MAX_VIDEO_SIZE_BYTES) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'حجم الفيديو كبير جداً، الرجاء تقليصه',
-          code: 'FILE_TOO_LARGE',
-          maxSizeBytes: MAX_VIDEO_SIZE_BYTES,
-          requestId,
-          limits,
-        },
-        { status: 400 }
-      )
+      return logAndReturnUploadFailure(requestId, 400, {
+        error: 'حجم الفيديو كبير جداً، الرجاء تقليصه',
+        code: 'FILE_TOO_LARGE',
+        limits,
+        fileName: file.name,
+        fileSizeBytes: size,
+        mimeType: mime,
+        detail: `Size ${size} bytes; max ${MAX_VIDEO_SIZE_BYTES}`,
+      })
     }
     if (durationSec !== null && (!Number.isFinite(durationSec) || durationSec <= 0)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'مدة الفيديو غير صالحة',
-          code: 'INVALID_DURATION',
-          requestId,
-          limits,
-        },
-        { status: 400 }
-      )
+      return logAndReturnUploadFailure(requestId, 400, {
+        error: 'مدة الفيديو غير صالحة',
+        code: 'INVALID_DURATION',
+        limits,
+        detail: `durationSec=${String(rawDurationSec)}`,
+      })
     }
     if (durationSec !== null && durationSec > limits.maxDurationSec) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'مدة الفيديو أطول من الحد المسموح',
-          code: 'DURATION_TOO_LONG',
-          requestId,
-          limits,
-        },
-        { status: 400 }
-      )
+      return logAndReturnUploadFailure(requestId, 400, {
+        error: 'مدة الفيديو أطول من الحد المسموح',
+        code: 'DURATION_TOO_LONG',
+        limits,
+        detail: `durationSec=${durationSec}; max ${limits.maxDurationSec}`,
+      })
     }
 
     // Read file into memory buffer – for very large files you may want a streaming approach.
@@ -396,16 +394,12 @@ export async function POST(request: NextRequest) {
       })
 
       if (!course) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'لم يتم العثور على الدورة',
-            code: 'COURSE_NOT_FOUND',
-            requestId,
-            limits,
-          },
-          { status: 404 }
-        )
+        return logAndReturnUploadFailure(requestId, 404, {
+          error: 'لم يتم العثور على الدورة',
+          code: 'COURSE_NOT_FOUND',
+          limits,
+          detail: `courseId=${courseId} not found for teacher ${actorId}`,
+        })
       }
 
       const updated = await prisma.course.update({
@@ -417,6 +411,8 @@ export async function POST(request: NextRequest) {
     }
 
     const vimeoId = videoUri.split('/').filter(Boolean).pop() ?? ''
+
+    console.info(`[vimeo-upload:${requestId}] upload complete`, { vimeoId, videoUrl })
 
     return NextResponse.json({
       ok: true,
@@ -437,41 +433,34 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (err instanceof VimeoApiError) {
       const code = mapVimeoErrorCode(err)
-      console.error(`[vimeo-upload:${requestId}] Vimeo provider error`, {
-        status: err.status,
+      const failure: VimeoUploadFailureDetails = {
+        error: 'فشل الاتصال بخدمة Vimeo',
         code,
-        providerError: err.error,
-        providerDeveloperMessage: err.developerMessage,
-        providerRequestId: err.requestId,
-      })
+        provider: 'vimeo',
+        providerStatus: err.status,
+        providerError: err.error ?? null,
+        providerDeveloperMessage: err.developerMessage ?? null,
+        providerRequestId: err.requestId ?? null,
+        providerInvalidParameters: err.invalidParameters ?? null,
+        detail: err.rawBody ? err.rawBody.slice(0, 500) : undefined,
+      }
+      logVimeoUploadError('server', { requestId, httpStatus: err.status, ...failure })
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'فشل الاتصال بخدمة Vimeo',
-          code,
-          requestId,
-          limits,
-          provider: 'vimeo',
-          providerStatus: err.status,
-          providerError: err.error ?? null,
-          providerDeveloperMessage: err.developerMessage ?? null,
-          providerRequestId: err.requestId ?? null,
-          providerInvalidParameters: err.invalidParameters ?? null,
-        },
+        { ok: false, requestId, limits, ...failure },
         { status: err.status >= 400 && err.status < 600 ? err.status : 502 }
       )
     }
-    console.error(`[vimeo-upload:${requestId}] POST /api/vimeo/upload error`, err)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'فشل رفع الفيديو، حاول مرة أخرى',
-        code: 'UPLOAD_FAILED',
-        requestId,
-        limits,
-      },
-      { status: 500 }
-    )
+
+    const detail = err instanceof Error ? err.message : String(err)
+    if (err instanceof Error && err.stack) {
+      console.error(`[vimeo-upload:${requestId}] stack`, err.stack)
+    }
+    return logAndReturnUploadFailure(requestId, 500, {
+      error: 'فشل رفع الفيديو، حاول مرة أخرى',
+      code: 'UPLOAD_FAILED',
+      limits,
+      detail,
+    })
   }
 }
 

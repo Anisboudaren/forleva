@@ -1,4 +1,8 @@
-import { getVimeoUploadErrorHint } from '@/lib/vimeo-errors'
+import {
+  buildVimeoUploadErrorMessage,
+  logVimeoUploadError,
+  type VimeoUploadFailureDetails,
+} from '@/lib/vimeo-errors'
 
 export type VimeoUploadResult = {
   videoUrl: string
@@ -12,13 +16,21 @@ export type VimeoUploadOptions = {
   onProgress?: (pct: number) => void
 }
 
-type VimeoUploadApiResponse = {
+export type VimeoUploadApiResponse = VimeoUploadFailureDetails & {
   ok?: boolean
-  error?: string
-  code?: string
   videoUrl?: string
   embedUrl?: string | null
   vimeoId?: string
+}
+
+export class VimeoUploadError extends Error {
+  details: VimeoUploadFailureDetails
+
+  constructor(message: string, details: VimeoUploadFailureDetails) {
+    super(message)
+    this.name = 'VimeoUploadError'
+    this.details = details
+  }
 }
 
 export function readVideoDurationSec(file: File): Promise<number | null> {
@@ -37,6 +49,29 @@ export function readVideoDurationSec(file: File): Promise<number | null> {
     }
     video.src = objectUrl
   })
+}
+
+function failureFromApi(
+  data: VimeoUploadApiResponse,
+  httpStatus: number,
+  file: File
+): VimeoUploadFailureDetails {
+  return {
+    code: data.code,
+    error: data.error,
+    requestId: data.requestId,
+    httpStatus,
+    provider: data.provider,
+    providerStatus: data.providerStatus,
+    providerError: data.providerError,
+    providerDeveloperMessage: data.providerDeveloperMessage,
+    providerRequestId: data.providerRequestId,
+    providerInvalidParameters: data.providerInvalidParameters,
+    detail: data.detail,
+    fileName: file.name,
+    fileSizeBytes: file.size,
+    mimeType: file.type || undefined,
+  }
 }
 
 export async function runVimeoUpload(
@@ -59,23 +94,65 @@ export async function runVimeoUpload(
 
   onProgress?.(25)
 
-  const res = await fetch('/api/vimeo/upload', {
-    method: 'POST',
-    body: form,
-  })
+  let res: Response
+  try {
+    res = await fetch('/api/vimeo/upload', {
+      method: 'POST',
+      body: form,
+    })
+  } catch (networkErr) {
+    const details: VimeoUploadFailureDetails = {
+      code: 'NETWORK_ERROR',
+      error: 'تعذر الاتصال بالسيرفر أثناء الرفع',
+      detail: networkErr instanceof Error ? networkErr.message : String(networkErr),
+      fileName: file.name,
+      fileSizeBytes: file.size,
+      mimeType: file.type || undefined,
+    }
+    logVimeoUploadError('client', details)
+    throw new VimeoUploadError(buildVimeoUploadErrorMessage(details), details)
+  }
 
   onProgress?.(90)
 
-  const data = (await res.json().catch(() => ({}))) as VimeoUploadApiResponse
+  const contentType = res.headers.get('content-type') ?? ''
+  let data: VimeoUploadApiResponse = {}
+
+  if (contentType.includes('application/json')) {
+    data = (await res.json().catch(() => ({}))) as VimeoUploadApiResponse
+  } else {
+    const raw = await res.text().catch(() => '')
+    const details: VimeoUploadFailureDetails = {
+      code: 'NON_JSON_RESPONSE',
+      error: 'استجابة غير متوقعة من السيرفر (قد يكون حد nginx أو انتهاء المهلة)',
+      httpStatus: res.status,
+      detail: raw ? raw.slice(0, 500) : res.statusText,
+      fileName: file.name,
+      fileSizeBytes: file.size,
+      mimeType: file.type || undefined,
+    }
+    logVimeoUploadError('client', details)
+    throw new VimeoUploadError(buildVimeoUploadErrorMessage(details), details)
+  }
+
   if (!res.ok || data.ok === false) {
-    const hint = getVimeoUploadErrorHint(data.code)
-    const message = data.error ?? 'فشل رفع الفيديو'
-    throw new Error(`${message} ${hint}`)
+    const details = failureFromApi(data, res.status, file)
+    logVimeoUploadError('client', details)
+    throw new VimeoUploadError(buildVimeoUploadErrorMessage(details), details)
   }
 
   const videoUrl = data.videoUrl?.trim()
   if (!videoUrl) {
-    throw new Error('فشل رفع الفيديو: لم يُرجع رابط Vimeo')
+    const details: VimeoUploadFailureDetails = {
+      code: 'MISSING_VIDEO_URL',
+      error: 'فشل رفع الفيديو: لم يُرجع رابط Vimeo',
+      requestId: data.requestId,
+      httpStatus: res.status,
+      fileName: file.name,
+      fileSizeBytes: file.size,
+    }
+    logVimeoUploadError('client', details)
+    throw new VimeoUploadError(buildVimeoUploadErrorMessage(details), details)
   }
 
   onProgress?.(100)

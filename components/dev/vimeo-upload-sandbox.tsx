@@ -7,6 +7,11 @@ import {
   getVimeoEmbedUrl,
   type VimeoCleanEmbedOptions,
 } from '@/lib/vimeo'
+import {
+  buildVimeoUploadErrorMessage,
+  logVimeoUploadError,
+  type VimeoUploadFailureDetails,
+} from '@/lib/vimeo-errors'
 
 type UploadResponse = {
   ok?: boolean
@@ -326,16 +331,46 @@ export function VimeoUploadSandbox() {
         },
         body: form,
       })
-      const data = (await res.json().catch(() => ({}))) as UploadResponse
+      const contentType = res.headers.get('content-type') ?? ''
+      const data = (
+        contentType.includes('application/json')
+          ? await res.json().catch(() => ({}))
+          : { detail: (await res.text().catch(() => '')).slice(0, 500), code: 'NON_JSON_RESPONSE' }
+      ) as UploadResponse
       if (!res.ok || data.ok === false) {
-        setError(data.error ?? 'Upload failed')
+        const details: VimeoUploadFailureDetails = {
+          code: data.code,
+          error: data.error,
+          requestId: data.requestId,
+          httpStatus: res.status,
+          providerStatus: data.providerStatus,
+          providerError: data.providerError,
+          providerDeveloperMessage: data.providerDeveloperMessage,
+          providerRequestId: data.providerRequestId,
+          providerInvalidParameters: data.providerInvalidParameters,
+          detail: typeof (data as { detail?: string }).detail === 'string'
+            ? (data as { detail?: string }).detail
+            : undefined,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+        }
+        logVimeoUploadError('client', details)
+        setError(buildVimeoUploadErrorMessage(details))
         setResult(data)
         return
       }
       setResult(data)
       setSelectedExistingVideo(null)
-    } catch {
-      setError('Network error while uploading video')
+    } catch (networkErr) {
+      const details: VimeoUploadFailureDetails = {
+        code: 'NETWORK_ERROR',
+        error: 'Network error while uploading video',
+        detail: networkErr instanceof Error ? networkErr.message : String(networkErr),
+        fileName: file?.name,
+        fileSizeBytes: file?.size,
+      }
+      logVimeoUploadError('client', details)
+      setError(buildVimeoUploadErrorMessage(details))
     } finally {
       setUploading(false)
     }
