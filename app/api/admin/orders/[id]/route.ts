@@ -10,7 +10,7 @@ const VALID_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
 
 /**
  * PATCH /api/admin/orders/[id] — admin-only.
- * Body: { status?: OrderStatus, adminNotes?: string }
+ * Body: { status?: OrderStatus, adminNotes?: string, userId?: string }
  */
 export async function PATCH(
   req: Request,
@@ -28,12 +28,14 @@ export async function PATCH(
     const body = await req.json()
     const statusInput = (body.status as string)?.toUpperCase()
     const adminNotes = typeof body.adminNotes === 'string' ? body.adminNotes.trim() || null : undefined
+    const userIdInput = typeof body.userId === 'string' ? body.userId.trim() || null : undefined
 
-    const updateData: { status?: OrderStatus; adminNotes?: string | null } = {}
+    const updateData: { status?: OrderStatus; adminNotes?: string | null; userId?: string | null } = {}
     if (statusInput && VALID_STATUSES.includes(statusInput as OrderStatus)) {
       updateData.status = statusInput as OrderStatus
     }
     if (adminNotes !== undefined) updateData.adminNotes = adminNotes
+    if (userIdInput !== undefined) updateData.userId = userIdInput
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'لا يوجد تحديث صالح' }, { status: 400 })
@@ -41,27 +43,58 @@ export async function PATCH(
 
     const currentOrder = await prisma.order.findUnique({
       where: { id },
-      select: { id: true, userId: true, courseId: true, status: true },
+      select: { id: true, userId: true, courseId: true, status: true, guestPhone: true },
     })
     if (!currentOrder) {
       return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 })
     }
 
-    if (updateData.status === 'CONFIRMED') {
-      const existingConfirmed = await prisma.order.findFirst({
-        where: {
-          userId: currentOrder.userId,
-          courseId: currentOrder.courseId,
-          status: 'CONFIRMED',
-          id: { not: id },
-        },
-        select: { id: true },
+    if (updateData.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: updateData.userId },
+        select: { id: true, role: true },
       })
-      if (existingConfirmed) {
-        return NextResponse.json(
-          { error: 'يوجد طلب مؤكد مسبقاً لهذه الدورة وهذا الطالب' },
-          { status: 409 }
-        )
+      if (!user || user.role !== 'STUDENT') {
+        return NextResponse.json({ error: 'المستخدم غير موجود أو ليس طالباً' }, { status: 400 })
+      }
+    }
+
+    const effectiveUserId = updateData.userId !== undefined ? updateData.userId : currentOrder.userId
+
+    if (updateData.status === 'CONFIRMED') {
+      if (effectiveUserId) {
+        const existingConfirmed = await prisma.order.findFirst({
+          where: {
+            userId: effectiveUserId,
+            courseId: currentOrder.courseId,
+            status: 'CONFIRMED',
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+        if (existingConfirmed) {
+          return NextResponse.json(
+            { error: 'يوجد طلب مؤكد مسبقاً لهذه الدورة وهذا الطالب' },
+            { status: 409 }
+          )
+        }
+      } else if (currentOrder.guestPhone) {
+        const existingGuestConfirmed = await prisma.order.findFirst({
+          where: {
+            userId: null,
+            guestPhone: currentOrder.guestPhone,
+            courseId: currentOrder.courseId,
+            status: 'CONFIRMED',
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+        if (existingGuestConfirmed) {
+          return NextResponse.json(
+            { error: 'يوجد طلب ضيف مؤكد مسبقاً لهذه الدورة وهذا الرقم' },
+            { status: 409 }
+          )
+        }
       }
     }
 

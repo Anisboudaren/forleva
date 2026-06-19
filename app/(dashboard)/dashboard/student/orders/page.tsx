@@ -6,7 +6,7 @@ import { GradientText } from "@/components/text/gradient-text"
 import { ShoppingCart, Clock, BookOpen } from "lucide-react"
 type OrderWithCourse = {
   id: string
-  userId: string
+  userId: string | null
   courseId: string
   status: string
   amount: number

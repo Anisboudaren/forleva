@@ -16,10 +16,15 @@ import { GradientText } from "@/components/text/gradient-text"
 
 type SignupTab = 'student' | 'teacher'
 
+type SignupFormProps = React.ComponentProps<"form"> & {
+  redirectTo?: string
+}
+
 export function SignupForm({
   className,
+  redirectTo,
   ...props
-}: React.ComponentProps<"form">) {
+}: SignupFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +75,10 @@ export function SignupForm({
         setIsLoading(false)
         return
       }
-      router.push('/login?registered=1')
+      const loginUrl = redirectTo
+        ? `/login?registered=1&redirect=${encodeURIComponent(redirectTo)}`
+        : '/login?registered=1'
+      router.push(loginUrl)
       return
     } catch {
       setError('حدث خطأ في الاتصال')
@@ -247,7 +255,7 @@ export function SignupForm({
         <Field>
           <FieldDescription className="text-center text-gray-600">
             لديك حساب بالفعل؟{" "}
-            <a href="/login" className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
+            <a href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'} className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
               تسجيل الدخول
             </a>
           </FieldDescription>

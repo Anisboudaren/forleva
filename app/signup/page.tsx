@@ -2,7 +2,16 @@ import Image from "next/image"
 import { SignupForm } from "@/components/signup-form"
 import { BookOpen, GraduationCap, Award, TrendingUp } from "lucide-react"
 
-export default function SignupPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function SignupPage({ searchParams }: Props) {
+  const params = await searchParams
+  const redirectParam = params.redirect
+  const redirectTo =
+    typeof redirectParam === 'string' && redirectParam.startsWith('/') ? redirectParam : undefined
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2 bg-gray-50">
       {/* Left section with background video and floating cards */}
@@ -88,11 +97,10 @@ export default function SignupPage() {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-md">
-            <SignupForm />
+            <SignupForm redirectTo={redirectTo} />
           </div>
         </div>
       </div>
     </div>
   )
 }
-

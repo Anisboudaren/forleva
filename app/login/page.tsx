@@ -8,6 +8,9 @@ type Props = {
 export default async function LoginPage({ searchParams }: Props) {
   const params = await searchParams
   const showRegisteredMessage = params.registered === "1"
+  const redirectParam = params.redirect
+  const redirectTo =
+    typeof redirectParam === 'string' && redirectParam.startsWith('/') ? redirectParam : undefined
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2 bg-gray-50">
@@ -38,7 +41,7 @@ export default async function LoginPage({ searchParams }: Props) {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-md">
-            <LoginForm showRegisteredMessage={showRegisteredMessage} />
+            <LoginForm showRegisteredMessage={showRegisteredMessage} redirectTo={redirectTo} />
           </div>
         </div>
       </div>

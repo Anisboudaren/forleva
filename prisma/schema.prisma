@@ -36,6 +36,24 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  CHARGILY
+  CASH_ON_DELIVERY
+}
+
+enum CertificateType {
+  FREE
+  NATIONAL
+  INTERNATIONAL
+}
+
+enum CertificateRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
 enum AuditActorRole {
   SUPER_ADMIN
   ADMIN
@@ -78,6 +96,7 @@ model User {
   courseNotes     CourseNote[]
   questions       CourseQuestion[]
   questionReplies CourseQuestionReply[]
+  certificateRequests CertificateRequest[]
 }
 
 model Course {
@@ -105,6 +124,7 @@ model Course {
   itemProgress     CourseItemProgress[]
   notes            CourseNote[]
   questions        CourseQuestion[]
+  certificateRequests CertificateRequest[]
 
   @@index([teacherId])
   @@index([status])
@@ -160,21 +180,49 @@ model CourseNote {
 }
 
 model Order {
-  id                   String      @id @default(cuid())
-  userId               String
-  courseId             String
-  status               OrderStatus @default(PENDING)
-  amount               Int
-  adminNotes           String?
-  chargilyCheckoutId   String?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course               Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id                 String         @id @default(cuid())
+  userId             String?
+  courseId           String
+  status             OrderStatus    @default(PENDING)
+  amount             Int
+  paymentMethod      PaymentMethod?
+  deliveryFee        Int            @default(0)
+  guestFullName      String?
+  guestPhone         String?
+  checkoutToken      String?        @unique
+  adminNotes         String?
+  chargilyCheckoutId String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course             Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([courseId])
   @@index([status])
+  @@index([guestPhone])
+}
+
+model CertificateRequest {
+  id              String                   @id @default(cuid())
+  userId          String
+  courseId        String
+  certificateType CertificateType
+  fullName        String
+  placeOfBirth    String
+  dateOfBirth     DateTime
+  note            String?
+  status          CertificateRequestStatus @default(PENDING)
+  adminNotes      String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course          Course                   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@index([certificateType])
 }
 
 model CourseSection {

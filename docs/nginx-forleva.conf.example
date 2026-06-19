@@ -1,0 +1,31 @@
+# Example nginx site for Forleva (Next.js on PM2, e.g. port 3000)
+# Copy relevant parts into /etc/nginx/sites-available/<your-site>
+# then: sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+
+    # Required for teacher video upload to /api/vimeo/upload (app max 500MB)
+    client_max_body_size 500M;
+    client_body_timeout 600s;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+}
+
+# After Certbot, duplicate client_max_body_size and timeouts in the :443 server block too.

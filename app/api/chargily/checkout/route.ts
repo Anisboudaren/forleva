@@ -24,19 +24,12 @@ function getBaseUrl(req: Request): string {
 }
 
 /**
- * POST /api/chargily/checkout — create Chargily checkout for an existing order (student only).
- * Body: { orderId: string }
+ * POST /api/chargily/checkout — create Chargily checkout for an existing order.
+ * Student: { orderId } with session
+ * Guest: { orderId, checkoutToken }
  * Returns: { checkoutUrl: string }
  */
 export async function POST(req: Request) {
-  const session = await getUserSession()
-  if (!session) {
-    return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401 })
-  }
-  if (session.role !== 'STUDENT') {
-    return NextResponse.json({ error: 'الطلبات متاحة للطلاب فقط' }, { status: 403 })
-  }
-
   const apiKey = process.env.CHARGILY_PRIVATE_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'إعدادات الدفع غير مكتملة' }, { status: 500 })
@@ -45,29 +38,54 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const orderId = (body.orderId as string)?.trim()
+    const checkoutToken = (body.checkoutToken as string)?.trim()
+
     if (!orderId) {
       return NextResponse.json({ error: 'معرف الطلب مطلوب' }, { status: 400 })
     }
 
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        userId: session.userId,
-        status: 'PENDING',
-      },
-      include: { course: true },
-    })
+    const session = await getUserSession()
+    let order
+
+    if (session?.role === 'STUDENT') {
+      order = await prisma.order.findFirst({
+        where: {
+          id: orderId,
+          userId: session.userId,
+          status: 'PENDING',
+          paymentMethod: 'CHARGILY',
+        },
+        include: { course: true },
+      })
+    } else if (checkoutToken) {
+      order = await prisma.order.findFirst({
+        where: {
+          id: orderId,
+          userId: null,
+          checkoutToken,
+          status: 'PENDING',
+          paymentMethod: 'CHARGILY',
+        },
+        include: { course: true },
+      })
+    } else {
+      return NextResponse.json({ error: 'يجب تسجيل الدخول أو تقديم رمز الدفع' }, { status: 401 })
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'الطلب غير موجود أو غير مؤهل للدفع' }, { status: 404 })
     }
 
     const baseUrl = getBaseUrl(req)
+    const isGuest = !order.userId
+    const successQuery = new URLSearchParams({ order_id: order.id })
+    if (isGuest) successQuery.set('guest', '1')
+
     const payload = {
       amount: order.amount,
       currency: 'dzd',
-      success_url: `${baseUrl}/payment/success?order_id=${encodeURIComponent(order.id)}`,
-      failure_url: `${baseUrl}/payment/failure?order_id=${encodeURIComponent(order.id)}`,
+      success_url: `${baseUrl}/payment/success?${successQuery.toString()}`,
+      failure_url: `${baseUrl}/payment/failure?order_id=${encodeURIComponent(order.id)}${isGuest ? '&guest=1' : ''}`,
       metadata: { order_id: order.id },
       locale: 'ar' as const,
     }

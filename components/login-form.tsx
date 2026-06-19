@@ -17,11 +17,13 @@ type LoginTab = "student" | "teacher"
 
 type LoginFormProps = React.ComponentProps<"form"> & {
   showRegisteredMessage?: boolean
+  redirectTo?: string
 }
 
 export function LoginForm({
   className,
   showRegisteredMessage = false,
+  redirectTo,
   ...props
 }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
@@ -55,7 +57,7 @@ export function LoginForm({
         setIsLoading(false)
         return
       }
-      window.location.href = data.redirect || `/dashboard/${tab}`
+      window.location.href = redirectTo || data.redirect || `/dashboard/${tab}`
       return
     } catch {
       setError('حدث خطأ في الاتصال')
@@ -158,7 +160,7 @@ export function LoginForm({
         <Field>
           <FieldDescription className="text-center text-gray-600">
             ليس لديك حساب؟{" "}
-            <a href="/signup" className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
+            <a href={redirectTo ? `/signup?redirect=${encodeURIComponent(redirectTo)}` : '/signup'} className="text-gray-900 font-medium underline underline-offset-4 hover:text-yellow-600 transition-colors">
               سجل الآن
             </a>
           </FieldDescription>

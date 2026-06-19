@@ -122,11 +122,21 @@ export async function runVimeoUpload(
     data = (await res.json().catch(() => ({}))) as VimeoUploadApiResponse
   } else {
     const raw = await res.text().catch(() => '')
+    const isNginx413 =
+      res.status === 413 ||
+      raw.includes('413 Request Entity Too Large') ||
+      raw.toLowerCase().includes('nginx')
     const details: VimeoUploadFailureDetails = {
-      code: 'NON_JSON_RESPONSE',
-      error: 'استجابة غير متوقعة من السيرفر (قد يكون حد nginx أو انتهاء المهلة)',
+      code: isNginx413 ? 'NGINX_BODY_TOO_LARGE' : 'NON_JSON_RESPONSE',
+      error: isNginx413
+        ? `الملف ${(file.size / (1024 * 1024)).toFixed(1)} م.ب — nginx يرفض الطلب (413). زِد client_max_body_size`
+        : 'استجابة غير متوقعة من السيرفر (قد يكون حد nginx أو انتهاء المهلة)',
       httpStatus: res.status,
-      detail: raw ? raw.slice(0, 500) : res.statusText,
+      detail: isNginx413
+        ? `nginx 413 — file ${file.size} bytes; set client_max_body_size 500M`
+        : raw
+          ? raw.slice(0, 300)
+          : res.statusText,
       fileName: file.name,
       fileSizeBytes: file.size,
       mimeType: file.type || undefined,

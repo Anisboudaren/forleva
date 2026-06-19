@@ -42,6 +42,8 @@ export function getVimeoUploadErrorHint(code?: string): string {
       return 'انتظر قليلاً ثم حاول مرة أخرى (حد الرفع لكل معلم).'
     case 'NETWORK_ERROR':
       return 'تحقق من الاتصال بالإنترنت أو أن السيرفر يعمل.'
+    case 'NGINX_BODY_TOO_LARGE':
+      return 'ارفع حد nginx: client_max_body_size 500M; ثم sudo nginx -t && sudo systemctl reload nginx (راجع docs/nginx-upload-limits.md).'
     case 'NON_JSON_RESPONSE':
       return 'غالباً حد حجم الطلب على nginx أو انتهاء مهلة الرفع — راجع إعدادات السيرفر.'
     case 'UPLOAD_FAILED':
@@ -59,7 +61,9 @@ export function buildVimeoUploadErrorMessage(details: VimeoUploadFailureDetails)
   const providerLine =
     details.providerDeveloperMessage?.trim() || details.providerError?.trim() || ''
   if (providerLine) parts.push(providerLine)
-  if (details.detail?.trim()) parts.push(details.detail.trim())
+  if (details.code !== 'NGINX_BODY_TOO_LARGE' && details.detail?.trim()) {
+    parts.push(details.detail.trim())
+  }
   if (details.requestId) parts.push(`[${details.requestId}]`)
   return parts.filter(Boolean).join(' ') || 'فشل رفع الفيديو'
 }

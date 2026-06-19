@@ -6,6 +6,12 @@
 
 export type OrderStatus = "PENDING" | "CONFIRMED" | "CANCELLED"
 
+export type PaymentMethod = "CHARGILY" | "CASH_ON_DELIVERY"
+
+export type CertificateType = "FREE" | "NATIONAL" | "INTERNATIONAL"
+
+export type CertificateRequestStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "CANCELLED"
+
 export type CourseStatus = "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "ARCHIVED"
 
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "TEACHER" | "STUDENT"

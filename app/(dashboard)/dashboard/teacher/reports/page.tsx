@@ -61,7 +61,7 @@ export default async function ReportsPage() {
     const b = monthlyBuckets.get(k) ?? { sales: 0, revenue: 0, studentIds: new Set<string>() }
     b.sales += 1
     b.revenue += o.amount
-    b.studentIds.add(o.userId)
+    if (o.userId) b.studentIds.add(o.userId)
     monthlyBuckets.set(k, b)
   }
 
@@ -87,7 +87,7 @@ export default async function ReportsPage() {
   const recent7dOrders = orders.filter((o) => o.createdAt >= start7d)
   const revenue7d = recent7dOrders.reduce((acc, o) => acc + o.amount, 0)
   const sales7d = recent7dOrders.length
-  const students7d = new Set(recent7dOrders.map((o) => o.userId)).size
+  const students7d = new Set(recent7dOrders.map((o) => o.userId).filter((id): id is string => id != null)).size
 
   // Top courses (all-time confirmed)
   const top = await prisma.order.groupBy({

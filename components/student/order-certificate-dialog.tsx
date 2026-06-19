@@ -43,6 +43,8 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -53,6 +55,8 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
     setPlaceOfBirth('')
     setDateOfBirth('')
     setNote('')
+    setSubmitError(null)
+    setSubmitSuccess(false)
     setLoading(true)
     fetch('/api/orders', { credentials: 'include' })
       .then((res) => {
@@ -65,9 +69,7 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
       })
       .then((data: OrderWithCourse[]) => {
         const list = Array.isArray(data) ? data : []
-        const eligible = list.filter(
-          (o) => o.course && (o.status === 'PENDING' || o.status === 'CONFIRMED')
-        )
+        const eligible = list.filter((o) => o.course && o.status === 'CONFIRMED')
         const byCourse = new Map<string, string>()
         eligible.forEach((o) => {
           if (o.course) byCourse.set(o.course.id, o.course.title)
@@ -81,14 +83,36 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
       .finally(() => setLoading(false))
   }, [open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
-    // Front-only: no API call for now
-    setTimeout(() => {
+    setSubmitError(null)
+    try {
+      const res = await fetch('/api/student/certificate-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          courseId,
+          certificateType,
+          fullName: fullName.trim(),
+          placeOfBirth: placeOfBirth.trim(),
+          dateOfBirth,
+          note: note.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSubmitError((data.error as string) || 'فشل إرسال الطلب')
+        return
+      }
+      setSubmitSuccess(true)
+      setTimeout(() => onOpenChange(false), 1500)
+    } catch {
+      setSubmitError('حدث خطأ في الاتصال')
+    } finally {
       setSubmitting(false)
-      onOpenChange(false)
-    }, 500)
+    }
   }
 
   return (
@@ -100,7 +124,7 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
             طلب شهادة
           </DialogTitle>
           <DialogDescription>
-            اختر الدورة ونوع الشهادة وأدخل بياناتك. (الطلب للواجهة فقط حالياً)
+            اختر الدورة ونوع الشهادة وأدخل بياناتك كما تظهر في الوثائق الرسمية.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,10 +144,20 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
           <form onSubmit={handleSubmit} className="space-y-4">
             {courses.length === 0 ? (
               <p className="text-sm text-gray-600 py-2">
-                لا توجد دورات مسجلة أو مدفوعة. سجّل في دورة أولاً ثم عد لطلب الشهادة.
+                لا توجد دورات مؤكدة. يجب تأكيد اشتراكك في الدورة أولاً ثم العودة لطلب الشهادة.
               </p>
             ) : (
               <>
+                {submitSuccess && (
+                  <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2" role="status">
+                    تم إرسال طلب الشهادة بنجاح. سيتواصل معك الفريق قريباً.
+                  </p>
+                )}
+                {submitError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" role="alert">
+                    {submitError}
+                  </p>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="order-cert-course">الدورة</Label>
                   <select

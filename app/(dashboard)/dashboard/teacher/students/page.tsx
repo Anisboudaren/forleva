@@ -37,8 +37,12 @@ export default async function StudentsPage() {
     },
   })
 
-  const studentIds = Array.from(new Set(orders.map((o) => o.userId)))
-  const courseIds = Array.from(new Set(orders.map((o) => o.courseId)))
+  const ordersWithUser = orders.filter(
+    (o): o is (typeof orders)[number] & { userId: string } => o.userId != null
+  )
+
+  const studentIds = Array.from(new Set(ordersWithUser.map((o) => o.userId)))
+  const courseIds = Array.from(new Set(ordersWithUser.map((o) => o.courseId)))
 
   const [itemsByCourse, progressRows] = await Promise.all([
     prisma.courseSection.findMany({
@@ -58,7 +62,7 @@ export default async function StudentsPage() {
 
   const studentCourses = new Map<string, Set<string>>()
   const courseTitleById = new Map<string, string>()
-  for (const o of orders) {
+  for (const o of ordersWithUser) {
     const set = studentCourses.get(o.userId) ?? new Set<string>()
     set.add(o.courseId)
     studentCourses.set(o.userId, set)
@@ -79,7 +83,7 @@ export default async function StudentsPage() {
   }
 
   const userMap = new Map<string, { name: string; email: string; createdAt: Date }>()
-  for (const o of orders) {
+  for (const o of ordersWithUser) {
     if (!userMap.has(o.userId)) {
       userMap.set(o.userId, {
         name: o.user?.fullName ?? "طالب",
