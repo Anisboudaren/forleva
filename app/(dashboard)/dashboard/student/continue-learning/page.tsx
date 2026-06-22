@@ -5,7 +5,8 @@ import { GradientText } from "@/components/text/gradient-text"
 import Link from "next/link"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
-import { formatRelativeAr } from "@/lib/format-date"
+import { formatRelativeAr } from '@/lib/format-date'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 export default async function ContinueLearningPage() {
   const session = await getUserSession()
@@ -79,9 +80,7 @@ export default async function ContinueLearningPage() {
         nextLesson: nextItem ? nextItem.title : "مكتملة",
         progress,
         lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
-        image:
-          c.imageUrl ||
-          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        image: getSafeCourseImageUrl(c.imageUrl),
         duration: nextItem?.duration ?? "—",
         lessonNumber: Math.min(completedLessons + 1, Math.max(totalLessons, 1)),
         totalLessons,

@@ -1,9 +1,23 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Play, BookOpen, Clock, CheckCircle2, HelpCircle, ExternalLink, FileText, Award, Headphones, CheckSquare, MessageSquare, Loader2 } from "lucide-react"
+import {
+  Play,
+  BookOpen,
+  Clock,
+  CheckCircle2,
+  HelpCircle,
+  ExternalLink,
+  FileText,
+  MessageSquare,
+  Loader2,
+  FileCheck,
+} from "lucide-react"
 import { VimeoVideoPlayer } from "@/components/vimeo-video-player"
 import { isVimeoUrl } from "@/lib/vimeo"
+import { QuizPlayer } from "@/components/student/learning/quiz-player"
+import { FormPlayer } from "@/components/student/learning/form-player"
+import type { FormField } from "@/lib/course-content"
 
 type CourseSectionItem = {
   id: string
@@ -12,7 +26,12 @@ type CourseSectionItem = {
   duration?: string
   url?: string
   position: number
-  extraData?: unknown
+  studentExtra?: {
+    questions?: Array<{ id: string; question: string; options: string[]; allowMultiple?: boolean }>
+    formFields?: FormField[]
+    description?: string
+    fileUrl?: string
+  }
 }
 
 type CourseSection = {
@@ -49,12 +68,8 @@ const lessonTypes: Record<
   QUIZ: { icon: HelpCircle, label: "كويز", color: "text-purple-500" },
   EXTERNAL: { icon: ExternalLink, label: "رابط خارجي", color: "text-blue-500" },
   PDF: { icon: FileText, label: "PDF", color: "text-red-600" },
-  SURVEY: { icon: CheckCircle2, label: "استبيان", color: "text-green-500" },
+  SURVEY: { icon: FileCheck, label: "نموذج", color: "text-green-500" },
   TITLE: { icon: BookOpen, label: "عنوان", color: "text-gray-500" },
-  CERTIFICATE: { icon: Award, label: "شهادة", color: "text-amber-500" },
-  EXERCISE: { icon: CheckSquare, label: "تمرين", color: "text-indigo-500" },
-  AUDIO: { icon: Headphones, label: "صوتي", color: "text-pink-500" },
-  CHECKLIST: { icon: CheckCircle2, label: "قائمة", color: "text-teal-500" },
 }
 
 type Props = {
@@ -76,6 +91,151 @@ type ProgressResponse = {
   }>
 }
 
+function normalizeType(type: string) {
+  return type.toUpperCase()
+}
+
+function ContentArea({
+  course,
+  activeItem,
+  onQuizOrFormCompleted,
+}: {
+  course: Course
+  activeItem: (CourseSectionItem & { sectionTitle: string }) | undefined
+  onQuizOrFormCompleted: () => void
+}) {
+  if (!activeItem) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[280px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <Play className="h-10 w-10 text-amber-400" />
+        <p className="text-sm text-slate-100 text-center">اختر درساً من المنهج لبدء التعلّم</p>
+      </div>
+    )
+  }
+
+  const type = normalizeType(activeItem.type)
+  const extra = activeItem.studentExtra ?? {}
+
+  if (type === "VIDEO") {
+    const url = activeItem.url?.trim()
+    if (url && isVimeoUrl(url)) {
+      return (
+        <VimeoVideoPlayer
+          key={url}
+          videoUrl={url}
+          title={activeItem.title}
+          className="w-full"
+        />
+      )
+    }
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 min-h-[280px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 text-center">
+        <Play className="h-10 w-10 text-amber-400" />
+        <p className="text-sm text-slate-100">
+          {url
+            ? "رابط الفيديو غير مدعوم. استخدم رابط Vimeo صالحاً."
+            : "ارفع فيديو Vimeo لهذا الدرس من لوحة المعلم."}
+        </p>
+      </div>
+    )
+  }
+
+  if (type === "PDF") {
+    const pdfUrl = activeItem.url?.trim() || extra.fileUrl?.trim()
+    if (!pdfUrl) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-2 min-h-[280px] bg-gray-50 p-6 text-center">
+          <FileText className="h-10 w-10 text-red-500" />
+          <p className="text-sm text-gray-600">لم يُرفع ملف PDF بعد.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col bg-white min-h-[480px]">
+        <iframe
+          src={pdfUrl}
+          title={activeItem.title}
+          className="w-full flex-1 min-h-[480px] border-0"
+        />
+        <div className="border-t border-gray-100 px-4 py-2 text-center">
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-amber-600 hover:underline"
+          >
+            فتح PDF في نافذة جديدة
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === "EXTERNAL") {
+    const link = activeItem.url?.trim()
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-[280px] bg-gradient-to-br from-blue-50 to-white p-8 text-center">
+        <ExternalLink className="h-12 w-12 text-blue-500" />
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">{activeItem.title}</h3>
+          {extra.description && (
+            <p className="mt-2 text-sm text-gray-600 max-w-md">{extra.description}</p>
+          )}
+        </div>
+        {link ? (
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <ExternalLink className="h-4 w-4" />
+            فتح الرابط
+          </a>
+        ) : (
+          <p className="text-sm text-gray-500">لم يُضف رابط بعد.</p>
+        )}
+      </div>
+    )
+  }
+
+  if (type === "QUIZ") {
+    return (
+      <div className="bg-white min-h-[280px] max-h-[70vh] overflow-y-auto">
+        <QuizPlayer
+          courseId={course.id}
+          itemId={activeItem.id}
+          title={activeItem.title}
+          questions={extra.questions ?? []}
+          onCompleted={onQuizOrFormCompleted}
+        />
+      </div>
+    )
+  }
+
+  if (type === "SURVEY") {
+    return (
+      <div className="bg-white min-h-[280px] max-h-[70vh] overflow-y-auto">
+        <FormPlayer
+          courseId={course.id}
+          itemId={activeItem.id}
+          title={activeItem.title}
+          description={extra.description}
+          formFields={extra.formFields ?? []}
+          onCompleted={onQuizOrFormCompleted}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 min-h-[280px] bg-gray-50 p-6 text-center">
+      <BookOpen className="h-10 w-10 text-gray-400" />
+      <p className="text-sm text-gray-600">نوع المحتوى غير مدعوم. يمكنك وضع علامة مكتمل للمتابعة.</p>
+    </div>
+  )
+}
+
 export default function LearningStudioClient({ course }: Props) {
   const topRef = useRef<HTMLDivElement | null>(null)
   const flatItems = useMemo(
@@ -91,7 +251,7 @@ export default function LearningStudioClient({ course }: Props) {
   )
 
   const [activeItemId, setActiveItemId] = useState<string | null>(
-    flatItems.find((i) => i.type === "VIDEO")?.id ?? flatItems[0]?.id ?? null
+    flatItems.find((i) => normalizeType(i.type) === "VIDEO")?.id ?? flatItems[0]?.id ?? null
   )
 
   const activeItem = flatItems.find((i) => i.id === activeItemId) ?? flatItems[0]
@@ -102,6 +262,21 @@ export default function LearningStudioClient({ course }: Props) {
   const [saving, setSaving] = useState(false)
   const [noteText, setNoteText] = useState("")
   const [noteStatus, setNoteStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+
+  const refreshProgress = () => {
+    fetch(`/api/student/progress?courseId=${encodeURIComponent(course.id)}`, {
+      credentials: "include",
+    })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = (await res.json()) as ProgressResponse
+        const completed = new Set(
+          (data.items ?? []).filter((i) => i.completedAt).map((i) => i.id)
+        )
+        setCompletedItemIds(completed)
+      })
+      .catch(() => {})
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -139,7 +314,6 @@ export default function LearningStudioClient({ course }: Props) {
 
   useEffect(() => {
     if (!activeItemId) return
-    // Mark as viewed (best-effort; do not block UI)
     fetch("/api/student/progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -225,53 +399,23 @@ export default function LearningStudioClient({ course }: Props) {
     }
   }
 
-  const activeVimeoUrl = useMemo(() => {
-    if (!activeItem) return null
-    if (activeItem.type !== "VIDEO" && activeItem.type !== "video") return null
-    const url = activeItem.url?.trim()
-    if (!url || !isVimeoUrl(url)) return null
-    return url
-  }, [activeItem])
+  const activeType = activeItem ? normalizeType(activeItem.type) : ""
+  const hideManualComplete = activeType === "QUIZ" || activeType === "SURVEY"
 
   return (
     <div
       ref={topRef}
       className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)] gap-4 md:gap-6"
     >
-      {/* Main learning area */}
       <div className="flex flex-col gap-4 md:gap-5">
         <div className="rounded-2xl border border-gray-200 bg-black/95 overflow-hidden shadow-lg">
-          {activeVimeoUrl ? (
-            <VimeoVideoPlayer
-              key={activeVimeoUrl}
-              videoUrl={activeVimeoUrl}
-              title={activeItem?.title ?? course.title}
-              className="w-full"
-            />
-          ) : activeItem && (activeItem.type === "VIDEO" || activeItem.type === "video") ? (
-            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 text-center">
-                <Play className="h-10 w-10 text-amber-400" />
-                <p className="text-sm text-slate-100">
-                  {activeItem.url
-                    ? "رابط الفيديو غير مدعوم. استخدم رابط Vimeo صالحاً."
-                    : "ارفع فيديو Vimeo لهذا الدرس من لوحة المعلم."}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                <Play className="h-10 w-10 text-amber-400" />
-                <p className="text-sm text-slate-100">
-                  اختر درساً من المنهج على اليمين لبدء المشاهدة
-                </p>
-              </div>
-            </div>
-          )}
+          <ContentArea
+            course={course}
+            activeItem={activeItem}
+            onQuizOrFormCompleted={refreshProgress}
+          />
         </div>
 
-        {/* Active lesson info + notes */}
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5 space-y-3">
             <p className="text-xs font-medium text-gray-500">الدرس الحالي</p>
@@ -293,34 +437,43 @@ export default function LearningStudioClient({ course }: Props) {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={markActiveCompleted}
-                disabled={!activeItemId || isActiveCompleted || saving}
-                className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                  isActiveCompleted
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : "bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                }`}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className={`h-4 w-4 ${isActiveCompleted ? "text-emerald-600" : "text-white"}`} />
-                )}
-                <span>{isActiveCompleted ? "تم إكمال الدرس" : "وضع علامة مكتمل"}</span>
-              </button>
+            {!hideManualComplete && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={markActiveCompleted}
+                  disabled={!activeItemId || isActiveCompleted || saving}
+                  className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    isActiveCompleted
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  }`}
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className={`h-4 w-4 ${isActiveCompleted ? "text-emerald-600" : "text-white"}`} />
+                  )}
+                  <span>{isActiveCompleted ? "تم إكمال الدرس" : "وضع علامة مكتمل"}</span>
+                </button>
 
-              {progressLoading ? (
-                <span className="text-xs text-gray-500 inline-flex items-center gap-2">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  جارٍ تحميل التقدم...
-                </span>
-              ) : progressError ? (
-                <span className="text-xs text-red-600">{progressError}</span>
-              ) : null}
-            </div>
+                {progressLoading ? (
+                  <span className="text-xs text-gray-500 inline-flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    جارٍ تحميل التقدم...
+                  </span>
+                ) : progressError ? (
+                  <span className="text-xs text-red-600">{progressError}</span>
+                ) : null}
+              </div>
+            )}
+
+            {hideManualComplete && isActiveCompleted && (
+              <p className="text-sm text-emerald-700 font-medium inline-flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                تم إكمال هذا الدرس
+              </p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5 flex flex-col gap-3">
@@ -349,7 +502,6 @@ export default function LearningStudioClient({ course }: Props) {
         </div>
       </div>
 
-      {/* Curriculum sidebar */}
       <aside className="rounded-2xl border border-gray-200 bg-white p-3 md:p-4 lg:p-5 max-h-[calc(100vh-8rem)] lg:sticky lg:top-24 overflow-hidden flex flex-col">
         <div className="mb-3 md:mb-4">
           <p className="text-xs font-medium text-gray-500 mb-1">منهج الدورة</p>
@@ -371,9 +523,7 @@ export default function LearningStudioClient({ course }: Props) {
                   const isActive = item.id === activeItem?.id
                   const isCompleted = completedItemIds.has(item.id)
                   const typeInfo =
-                    lessonTypes[item.type] ??
-                    lessonTypes[item.type.toUpperCase()] ??
-                    lessonTypes.TITLE
+                    lessonTypes[normalizeType(item.type)] ?? lessonTypes.TITLE
                   const TypeIcon = typeInfo.icon
                   return (
                     <li key={item.id}>
@@ -381,7 +531,6 @@ export default function LearningStudioClient({ course }: Props) {
                         type="button"
                         onClick={() => {
                           setActiveItemId(item.id)
-                          // Scroll the whole page to the very top (under the app header)
                           window.scrollTo({ top: 0, behavior: "smooth" })
                         }}
                         className={`w-full px-3.5 py-2.5 flex items-center justify-between text-right text-xs transition-colors ${
@@ -423,4 +572,3 @@ export default function LearningStudioClient({ course }: Props) {
     </div>
   )
 }
-

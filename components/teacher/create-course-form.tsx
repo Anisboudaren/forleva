@@ -22,14 +22,9 @@ import {
   ChevronUp,
   Video,
   FileText,
-  Image as ImageIcon,
   ExternalLink,
   HelpCircle,
   FileCheck,
-  Award,
-  CheckSquare,
-  Headphones,
-  CheckCircle2,
   Edit,
   File,
   Layers,
@@ -45,14 +40,24 @@ import {
   type BeforeAfterItem,
   type BonusItem,
 } from '@/lib/course-sales'
+import { runImageUpload, ImageUploadError } from '@/lib/image-upload-client'
+import { runDocumentUpload, DocumentUploadError } from '@/lib/document-upload-client'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 import { runVimeoUpload } from '@/lib/vimeo-upload-client'
+import {
+  MAX_PDF_SIZE_BYTES,
+  defaultFormField,
+  defaultQuizQuestion,
+  type FormField,
+  type FormFieldType,
+  type QuizQuestion,
+} from '@/lib/course-content'
 
-export type ContentType =
-  | 'video'
-  | 'quiz'
-  | 'external'
-  | 'pdf'
-  | 'survey'
+/** Active content types for new courses */
+export type ContentType = 'video' | 'quiz' | 'external' | 'pdf' | 'survey'
+
+/** Legacy types may exist in saved courses */
+export type LegacyContentType =
   | 'title'
   | 'certificate'
   | 'exercise'
@@ -63,20 +68,15 @@ export type ContentType =
 
 export interface ContentItem {
   id: string
-  type: ContentType
+  type: ContentType | LegacyContentType
   title: string
   duration?: string
   url?: string
-  /** Quiz: question text */
-  question?: string
-  /** Quiz: answer options */
-  options?: string[]
-  /** Quiz: indices of correct option(s) */
-  correctOptionIndices?: number[]
-  /** Video, survey, etc.: description */
+  questions?: QuizQuestion[]
+  formFields?: FormField[]
   description?: string
-  /** Video/PDF/audio/document/image: object URL or file name after upload (front-only) */
   fileUrl?: string
+  fileKey?: string
 }
 
 export interface Section {
@@ -113,14 +113,7 @@ const CONTENT_TYPES: {
   { value: 'quiz', label: 'كويز', icon: HelpCircle, color: 'text-purple-600', bg: 'bg-purple-100', hover: 'hover:bg-purple-200' },
   { value: 'external', label: 'رابط خارجي', icon: ExternalLink, color: 'text-blue-600', bg: 'bg-blue-100', hover: 'hover:bg-blue-200' },
   { value: 'pdf', label: 'PDF', icon: FileText, color: 'text-red-700', bg: 'bg-red-50', hover: 'hover:bg-red-100' },
-  { value: 'survey', label: 'استبيان', icon: FileCheck, color: 'text-green-600', bg: 'bg-green-100', hover: 'hover:bg-green-200' },
-  { value: 'title', label: 'عنوان', icon: BookOpen, color: 'text-gray-700', bg: 'bg-gray-100', hover: 'hover:bg-gray-200' },
-  { value: 'certificate', label: 'شهادة', icon: Award, color: 'text-amber-600', bg: 'bg-amber-100', hover: 'hover:bg-amber-200' },
-  { value: 'exercise', label: 'تمرين', icon: CheckSquare, color: 'text-indigo-600', bg: 'bg-indigo-100', hover: 'hover:bg-indigo-200' },
-  { value: 'audio', label: 'صوتي', icon: Headphones, color: 'text-pink-600', bg: 'bg-pink-100', hover: 'hover:bg-pink-200' },
-  { value: 'checklist', label: 'قائمة', icon: CheckCircle2, color: 'text-teal-600', bg: 'bg-teal-100', hover: 'hover:bg-teal-200' },
-  { value: 'document', label: 'مستند', icon: FileText, color: 'text-sky-600', bg: 'bg-sky-100', hover: 'hover:bg-sky-200' },
-  { value: 'image', label: 'صورة', icon: ImageIcon, color: 'text-emerald-600', bg: 'bg-emerald-100', hover: 'hover:bg-emerald-200' },
+  { value: 'survey', label: 'نموذج', icon: FileCheck, color: 'text-green-600', bg: 'bg-green-100', hover: 'hover:bg-green-200' },
 ]
 
 const LEVELS = ['مبتدئ', 'متوسط', 'متقدم', 'كافة المستويات']
@@ -133,23 +126,41 @@ const defaultSection = (): Section => ({
   items: [],
 })
 
-const defaultContentItem = (type: ContentType = 'video'): ContentItem => ({
-  id: crypto.randomUUID(),
-  type,
-  title: '',
-  duration: '',
-  url: '',
-})
-
-function getTypeConfig(type: ContentType) {
-  return CONTENT_TYPES.find((t) => t.value === type) ?? {
-    value: type as ContentType,
-    label: type,
-    icon: File,
-    color: 'text-gray-600',
-    bg: 'bg-gray-100',
-    hover: 'hover:bg-gray-200',
+const defaultContentItem = (type: ContentType = 'video'): ContentItem => {
+  const base: ContentItem = {
+    id: crypto.randomUUID(),
+    type,
+    title: '',
+    duration: '',
+    url: '',
   }
+  if (type === 'quiz') {
+    base.questions = [defaultQuizQuestion()]
+  }
+  if (type === 'survey') {
+    base.formFields = [defaultFormField('text')]
+  }
+  return base
+}
+
+function getTypeConfig(type: ContentType | LegacyContentType) {
+  return (
+    CONTENT_TYPES.find((t) => t.value === type) ?? {
+      value: type as ContentType,
+      label: String(type),
+      icon: File,
+      color: 'text-gray-600',
+      bg: 'bg-gray-100',
+      hover: 'hover:bg-gray-200',
+    }
+  )
+}
+
+function formatImageUploadError(err: unknown, fallback: string): string {
+  if (err instanceof ImageUploadError) return err.message
+  if (err instanceof DocumentUploadError) return err.message
+  if (err instanceof Error && err.message.trim()) return err.message
+  return fallback
 }
 
 function ContentItemRow({
@@ -158,22 +169,26 @@ function ContentItemRow({
   onUpdate,
   onRemove,
   onUploadVideo,
+  onUploadDocument,
 }: {
   item: ContentItem
   sectionId: string
   onUpdate: (itemId: string, patch: Partial<ContentItem>) => void
   onRemove: (itemId: string) => void
   onUploadVideo?: (file: File) => Promise<string | null>
+  onUploadDocument?: (file: File) => Promise<{ url: string; key: string } | null>
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
   const [sectionVideoUploading, setSectionVideoUploading] = useState(false)
   const [sectionVideoError, setSectionVideoError] = useState<string | null>(null)
+  const [sectionPdfUploading, setSectionPdfUploading] = useState(false)
+  const [sectionPdfError, setSectionPdfError] = useState<string | null>(null)
   const typeConfig = getTypeConfig(item.type)
   const TypeIcon = typeConfig.icon
 
-  const durationLabel = ['video', 'audio'].includes(item.type) && item.duration ? item.duration : '-'
-  const hasUrl = ['external', 'video', 'pdf', 'document', 'image'].includes(item.type) && item.url
+  const durationLabel = item.type === 'video' && item.duration ? item.duration : '-'
+  const hasUrl = ['external', 'video', 'pdf'].includes(item.type) && item.url
 
   return (
     <div className="flex flex-col border border-gray-200 rounded-xl hover:shadow-md transition-all duration-300 min-w-0">
@@ -282,78 +297,128 @@ function ContentItemRow({
 
             {/* Type-specific fields */}
             {item.type === 'quiz' && (
-              <>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">السؤال</Label>
-                  <textarea
-                    value={item.question ?? ''}
-                    onChange={(e) => onUpdate(item.id, { question: e.target.value })}
-                    placeholder="نص السؤال..."
-                    rows={2}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm min-h-[60px]"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">الخيارات (حدد الصحيح/ة)</Label>
-                  <div className="space-y-2">
-                    {(item.options ?? ['', '']).map((opt, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={(item.correctOptionIndices ?? []).includes(idx)}
-                          onChange={(e) => {
-                            const next = item.correctOptionIndices ?? []
-                            const nextIdx = e.target.checked
-                              ? [...next, idx].sort((a, b) => a - b)
-                              : next.filter((i) => i !== idx)
-                            onUpdate(item.id, { correctOptionIndices: nextIdx })
-                          }}
-                          className="rounded border-gray-300"
-                          aria-label="صحيح"
-                        />
-                        <Input
-                          value={opt}
-                          onChange={(e) => {
-                            const next = [...(item.options ?? ['', ''])]
-                            next[idx] = e.target.value
-                            onUpdate(item.id, { options: next })
-                          }}
-                          placeholder={`خيار ${idx + 1}`}
-                          className="flex-1 min-w-0"
-                        />
+              <div className="space-y-4">
+                {(item.questions ?? [defaultQuizQuestion()]).map((q, qIdx) => (
+                  <div key={q.id} className="rounded-lg border border-purple-100 bg-purple-50/50 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-sm font-medium text-gray-700">سؤال {qIdx + 1}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600"
+                        disabled={(item.questions ?? []).length <= 1}
+                        onClick={() => {
+                          const next = (item.questions ?? []).filter((_, i) => i !== qIdx)
+                          onUpdate(item.id, { questions: next.length ? next : [defaultQuizQuestion()] })
+                        }}
+                        aria-label="حذف السؤال"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <textarea
+                      value={q.question}
+                      onChange={(e) => {
+                        const next = [...(item.questions ?? [defaultQuizQuestion()])]
+                        next[qIdx] = { ...next[qIdx], question: e.target.value }
+                        onUpdate(item.id, { questions: next })
+                      }}
+                      placeholder="نص السؤال..."
+                      rows={2}
+                      className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[60px]"
+                    />
+                    <div>
+                      <Label className="mb-2 block text-sm font-medium text-gray-700">الخيارات (حدد الصحيح/ة)</Label>
+                      <div className="space-y-2">
+                        {(q.options ?? ['', '']).map((opt, optIdx) => (
+                          <div key={optIdx} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={(q.correctOptionIndices ?? []).includes(optIdx)}
+                              onChange={(e) => {
+                                const nextQs = [...(item.questions ?? [defaultQuizQuestion()])]
+                                const cur = nextQs[qIdx]
+                                const nextCorrect = e.target.checked
+                                  ? [...(cur.correctOptionIndices ?? []), optIdx].sort((a, b) => a - b)
+                                  : (cur.correctOptionIndices ?? []).filter((i) => i !== optIdx)
+                                nextQs[qIdx] = { ...cur, correctOptionIndices: nextCorrect }
+                                onUpdate(item.id, { questions: nextQs })
+                              }}
+                              className="rounded border-gray-300"
+                              aria-label="صحيح"
+                            />
+                            <Input
+                              value={opt}
+                              onChange={(e) => {
+                                const nextQs = [...(item.questions ?? [defaultQuizQuestion()])]
+                                const nextOpts = [...(nextQs[qIdx].options ?? ['', ''])]
+                                nextOpts[optIdx] = e.target.value
+                                nextQs[qIdx] = { ...nextQs[qIdx], options: nextOpts }
+                                onUpdate(item.id, { questions: nextQs })
+                              }}
+                              placeholder={`خيار ${optIdx + 1}`}
+                              className="flex-1 min-w-0"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="flex-shrink-0 h-8 w-8"
+                              onClick={() => {
+                                const nextQs = [...(item.questions ?? [defaultQuizQuestion()])]
+                                const nextOpts = (nextQs[qIdx].options ?? ['', '']).filter((_, i) => i !== optIdx)
+                                const correct = (nextQs[qIdx].correctOptionIndices ?? [])
+                                  .filter((i) => i !== optIdx)
+                                  .map((i) => (i > optIdx ? i - 1 : i))
+                                nextQs[qIdx] = {
+                                  ...nextQs[qIdx],
+                                  options: nextOpts.length >= 1 ? nextOpts : [''],
+                                  correctOptionIndices: correct,
+                                }
+                                onUpdate(item.id, { questions: nextQs })
+                              }}
+                              disabled={(q.options ?? ['', '']).length <= 1}
+                              aria-label="حذف خيار"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 h-8 w-8"
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
-                            const next = (item.options ?? ['', '']).filter((_, i) => i !== idx)
-                            const correct = (item.correctOptionIndices ?? []).filter((i) => i !== idx).map((i) => (i > idx ? i - 1 : i))
-                            onUpdate(item.id, { options: next.length >= 1 ? next : [''], correctOptionIndices: correct })
+                            const nextQs = [...(item.questions ?? [defaultQuizQuestion()])]
+                            nextQs[qIdx] = {
+                              ...nextQs[qIdx],
+                              options: [...(nextQs[qIdx].options ?? ['', '']), ''],
+                            }
+                            onUpdate(item.id, { questions: nextQs })
                           }}
-                          disabled={(item.options ?? ['', '']).length <= 1}
-                          aria-label="حذف خيار"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Plus className="h-4 w-4 ml-1" />
+                          إضافة خيار
                         </Button>
                       </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        onUpdate(item.id, {
-                          options: [...(item.options ?? ['', '']), ''],
-                        })
-                      }
-                    >
-                      <Plus className="h-4 w-4 ml-1" />
-                      إضافة خيار
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              </>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onUpdate(item.id, {
+                      questions: [...(item.questions ?? []), defaultQuizQuestion()],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة سؤال
+                </Button>
+              </div>
             )}
 
             {item.type === 'video' && (
@@ -421,99 +486,48 @@ function ContentItemRow({
             )}
 
             {item.type === 'pdf' && (
-              <>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">رفع ملف PDF</Label>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) onUpdate(item.id, { fileUrl: URL.createObjectURL(file) })
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رابط PDF</Label>
-                  <Input
-                    value={item.url ?? ''}
-                    onChange={(e) => onUpdate(item.id, { url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full"
-                  />
-                </div>
-              </>
-            )}
-
-            {item.type === 'audio' && (
-              <>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">الوصف</Label>
-                  <textarea
-                    value={item.description ?? ''}
-                    onChange={(e) => onUpdate(item.id, { description: e.target.value })}
-                    placeholder="وصف الملف الصوتي..."
-                    rows={2}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm min-h-[60px]"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">رابط أو رفع صوت</Label>
-                  <Input
-                    value={item.url ?? ''}
-                    onChange={(e) => onUpdate(item.id, { url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full mb-2"
-                  />
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) onUpdate(item.id, { fileUrl: URL.createObjectURL(file) })
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">المدة</Label>
-                  <Input
-                    value={item.duration ?? ''}
-                    onChange={(e) => onUpdate(item.id, { duration: e.target.value })}
-                    placeholder="00:00"
-                    className="w-32"
-                  />
-                </div>
-              </>
-            )}
-
-            {['document', 'image'].includes(item.type) && (
-              <>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">
-                    {item.type === 'image' ? 'رفع صورة' : 'رفع مستند'}
-                  </Label>
-                  <input
-                    type="file"
-                    accept={item.type === 'image' ? 'image/*' : '.pdf,.doc,.docx,application/pdf'}
-                    className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) onUpdate(item.id, { fileUrl: URL.createObjectURL(file) })
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2 block text-sm font-medium text-gray-700">أو رابط</Label>
-                  <Input
-                    value={item.url ?? ''}
-                    onChange={(e) => onUpdate(item.id, { url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full"
-                  />
-                </div>
-              </>
+              <div>
+                <Label className="mb-2 block text-sm font-medium text-gray-700">رفع ملف PDF (حد أقصى 20 م.ب)</Label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
+                  disabled={sectionPdfUploading || !onUploadDocument}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file || !onUploadDocument) return
+                    if (file.size > MAX_PDF_SIZE_BYTES) {
+                      setSectionPdfError('الملف أكبر من 20 م.ب — استخدم «رابط خارجي» لملفات أكبر')
+                      e.target.value = ''
+                      return
+                    }
+                    setSectionPdfUploading(true)
+                    setSectionPdfError(null)
+                    try {
+                      const result = await onUploadDocument(file)
+                      if (result) {
+                        onUpdate(item.id, { url: result.url, fileUrl: result.url, fileKey: result.key })
+                      } else {
+                        setSectionPdfError('فشل رفع الملف')
+                      }
+                    } catch (err) {
+                      setSectionPdfError(formatImageUploadError(err, 'فشل رفع الملف'))
+                    } finally {
+                      setSectionPdfUploading(false)
+                      e.target.value = ''
+                    }
+                  }}
+                />
+                {sectionPdfUploading && (
+                  <p className="text-xs text-gray-600 mt-1">جاري رفع الملف...</p>
+                )}
+                {sectionPdfError && (
+                  <p className="text-xs text-red-600 mt-1" role="alert">{sectionPdfError}</p>
+                )}
+                {item.url && !sectionPdfUploading && (
+                  <p className="text-xs text-green-700 mt-1">تم رفع الملف بنجاح</p>
+                )}
+              </div>
             )}
 
             {item.type === 'external' && (
@@ -528,7 +542,152 @@ function ContentItemRow({
               </div>
             )}
 
-            {['survey', 'exercise', 'checklist', 'title', 'certificate'].includes(item.type) && (
+            {item.type === 'survey' && (
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-2 block text-sm font-medium text-gray-700">وصف النموذج (اختياري)</Label>
+                  <textarea
+                    value={item.description ?? ''}
+                    onChange={(e) => onUpdate(item.id, { description: e.target.value })}
+                    placeholder="تعليمات للطالب..."
+                    rows={2}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm min-h-[60px]"
+                  />
+                </div>
+                {(item.formFields ?? [defaultFormField('text')]).map((field, fIdx) => (
+                  <div key={field.id} className="rounded-lg border border-green-100 bg-green-50/50 p-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 justify-between">
+                      <Label className="text-sm font-medium text-gray-700">حقل {fIdx + 1}</Label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={field.type}
+                          onChange={(e) => {
+                            const newType = e.target.value as FormFieldType
+                            const next = [...(item.formFields ?? [])]
+                            next[fIdx] = {
+                              ...field,
+                              type: newType,
+                              options: newType === 'single' || newType === 'multi' ? ['', ''] : undefined,
+                            }
+                            onUpdate(item.id, { formFields: next })
+                          }}
+                          className="rounded-md border border-input bg-white px-2 py-1 text-sm"
+                        >
+                          <option value="text">نص قصير</option>
+                          <option value="textarea">فقرة</option>
+                          <option value="single">اختيار واحد</option>
+                          <option value="multi">اختيار متعدد</option>
+                        </select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600"
+                          disabled={(item.formFields ?? []).length <= 1}
+                          onClick={() => {
+                            const next = (item.formFields ?? []).filter((_, i) => i !== fIdx)
+                            onUpdate(item.id, { formFields: next.length ? next : [defaultFormField('text')] })
+                          }}
+                          aria-label="حذف الحقل"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Input
+                      value={field.label}
+                      onChange={(e) => {
+                        const next = [...(item.formFields ?? [])]
+                        next[fIdx] = { ...field, label: e.target.value }
+                        onUpdate(item.id, { formFields: next })
+                      }}
+                      placeholder="عنوان الحقل"
+                      className="w-full"
+                    />
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(field.required)}
+                        onChange={(e) => {
+                          const next = [...(item.formFields ?? [])]
+                          next[fIdx] = { ...field, required: e.target.checked }
+                          onUpdate(item.id, { formFields: next })
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      مطلوب
+                    </label>
+                    {(field.type === 'single' || field.type === 'multi') && (
+                      <div className="space-y-2">
+                        <Label className="text-sm text-gray-600">الخيارات</Label>
+                        {(field.options ?? ['', '']).map((opt, optIdx) => (
+                          <div key={optIdx} className="flex items-center gap-2">
+                            <Input
+                              value={opt}
+                              onChange={(e) => {
+                                const next = [...(item.formFields ?? [])]
+                                const nextOpts = [...(next[fIdx].options ?? ['', ''])]
+                                nextOpts[optIdx] = e.target.value
+                                next[fIdx] = { ...next[fIdx], options: nextOpts }
+                                onUpdate(item.id, { formFields: next })
+                              }}
+                              placeholder={`خيار ${optIdx + 1}`}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={(field.options ?? []).length <= 1}
+                              onClick={() => {
+                                const next = [...(item.formFields ?? [])]
+                                const nextOpts = (next[fIdx].options ?? ['']).filter((_, i) => i !== optIdx)
+                                next[fIdx] = { ...next[fIdx], options: nextOpts.length ? nextOpts : [''] }
+                                onUpdate(item.id, { formFields: next })
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const next = [...(item.formFields ?? [])]
+                            next[fIdx] = {
+                              ...next[fIdx],
+                              options: [...(next[fIdx].options ?? ['']), ''],
+                            }
+                            onUpdate(item.id, { formFields: next })
+                          }}
+                        >
+                          <Plus className="h-4 w-4 ml-1" />
+                          إضافة خيار
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onUpdate(item.id, {
+                      formFields: [...(item.formFields ?? []), defaultFormField('text')],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة حقل
+                </Button>
+              </div>
+            )}
+
+            {!['video', 'quiz', 'external', 'pdf', 'survey'].includes(item.type) && (
               <div>
                 <Label className="mb-2 block text-sm font-medium text-gray-700">الوصف (اختياري)</Label>
                 <textarea
@@ -538,6 +697,7 @@ function ContentItemRow({
                   rows={2}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm min-h-[60px]"
                 />
+                <p className="text-xs text-amber-600 mt-2">نوع محتوى قديم — يُنصح بتحويله إلى أحد الأنواع المدعومة.</p>
               </div>
             )}
 
@@ -833,15 +993,15 @@ export function CreateCourseForm({
         })
         .filter((item) => item.title || item.description),
     }
-    const sections = form.sections.map((sec, pos) => ({
+    const sections = form.sections.map((sec) => ({
       title: sec.title.trim() || 'قسم',
-      items: sec.items.map((item, itemPos) => {
+      items: sec.items.map((item) => {
         const extra: Record<string, unknown> = {}
-        if (item.question !== undefined && item.question !== '') extra.question = item.question
-        if (item.options !== undefined && item.options.length) extra.options = item.options
-        if (item.correctOptionIndices !== undefined && item.correctOptionIndices.length) extra.correctOptionIndices = item.correctOptionIndices
-        if (item.description !== undefined && item.description !== '') extra.description = item.description
-        if (item.fileUrl !== undefined && item.fileUrl !== '') extra.fileUrl = item.fileUrl
+        if (item.questions && item.questions.length > 0) extra.questions = item.questions
+        if (item.formFields && item.formFields.length > 0) extra.formFields = item.formFields
+        if (item.description?.trim()) extra.description = item.description.trim()
+        if (item.fileUrl?.trim()) extra.fileUrl = item.fileUrl.trim()
+        if (item.fileKey?.trim()) extra.fileKey = item.fileKey.trim()
         return {
           type: item.type,
           title: item.title.trim() || 'عنصر',
@@ -881,11 +1041,32 @@ export function CreateCourseForm({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
+  // Cover image upload (Cloudflare R2)
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
+  const [uploadingCoverImage, setUploadingCoverImage] = useState(false)
+  const [coverImageError, setCoverImageError] = useState<string | null>(null)
+
   const handleVideoSelect: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.target.files?.[0] ?? null
     setVideoFile(file)
     setUploadError(null)
     setUploadProgress(0)
+  }
+
+  const runImageUploadForForm = async (file: File, prefix = 'course-covers'): Promise<string | null> => {
+    const result = await runImageUpload(file, {
+      prefix,
+      name: form.title.trim() || file.name,
+    })
+    return result.url
+  }
+
+  const runDocumentUploadForForm = async (file: File): Promise<{ url: string; key: string } | null> => {
+    const result = await runDocumentUpload(file, {
+      prefix: 'course-content',
+      name: form.title.trim() || file.name,
+    })
+    return result
   }
 
   const runVimeoUploadForForm = async (
@@ -898,6 +1079,30 @@ export function CreateCourseForm({
       onProgress,
     })
     return result.videoUrl
+  }
+
+  const handleCoverImageSelect: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0] ?? null
+    setCoverImageFile(file)
+    setCoverImageError(null)
+  }
+
+  const handleCoverImageUpload = async () => {
+    if (!coverImageFile || uploadingCoverImage) return
+    setUploadingCoverImage(true)
+    setCoverImageError(null)
+    try {
+      const imageUrl = await runImageUploadForForm(coverImageFile, 'course-covers')
+      if (imageUrl) {
+        update('imageUrl', imageUrl)
+      } else {
+        setCoverImageError('فشل رفع صورة الغلاف')
+      }
+    } catch (err) {
+      setCoverImageError(formatImageUploadError(err, 'فشل رفع صورة الغلاف'))
+    } finally {
+      setUploadingCoverImage(false)
+    }
   }
 
   const handleVideoUpload = async () => {
@@ -1204,9 +1409,46 @@ export function CreateCourseForm({
                 ))}
               </select>
             </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Label htmlFor="imageUrl" className="mb-2 block">
-                رابط صورة الغلاف
+            <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+              <Label className="mb-1 block">صورة الغلاف</Label>
+              <p className="text-xs text-gray-500">
+                ارفع صورة الغلاف إلى التخزين السحابي، أو أدخل رابطاً خارجياً.
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
+                onChange={handleCoverImageSelect}
+                disabled={uploadingCoverImage || submitting}
+              />
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCoverImageUpload}
+                  disabled={!coverImageFile || uploadingCoverImage || submitting}
+                >
+                  {uploadingCoverImage ? 'جاري الرفع...' : 'رفع صورة الغلاف'}
+                </Button>
+              </div>
+              {coverImageError && (
+                <p className="text-xs text-red-600" role="alert">
+                  {coverImageError}
+                </p>
+              )}
+              {form.imageUrl && (
+                <div className="mt-2 space-y-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getSafeCourseImageUrl(form.imageUrl)}
+                    alt="معاينة صورة الغلاف"
+                    className="h-32 w-auto max-w-full rounded-lg border border-gray-200 object-cover"
+                  />
+                </div>
+              )}
+              <Label htmlFor="imageUrl" className="mb-2 block text-sm">
+                أو رابط صورة الغلاف
               </Label>
               <Input
                 id="imageUrl"
@@ -1620,6 +1862,7 @@ export function CreateCourseForm({
                           removeContentItem(section.id, itemId)
                         }
                         onUploadVideo={async (file) => runVimeoUploadForForm(file)}
+                        onUploadDocument={runDocumentUploadForForm}
                       />
                     ))}
                     <Button

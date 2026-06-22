@@ -4,6 +4,7 @@ import { getUserSession } from '@/lib/user-session'
 import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
 import { normalizeSalesPageData } from '@/lib/course-sales'
+import { buildExtraDataFromItem } from '@/lib/course-content'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -43,26 +44,21 @@ type ApiSectionItem = {
   title: string
   duration?: string
   url?: string
-  question?: string
-  options?: string[]
-  correctOptionIndices?: number[]
+  questions?: unknown[]
+  formFields?: unknown[]
   description?: string
   fileUrl?: string
+  fileKey?: string
 }
 
 function toExtraData(item: ApiSectionItem): Record<string, unknown> | null {
-  const keys = ['question', 'options', 'correctOptionIndices', 'description', 'fileUrl'] as const
-  const obj: Record<string, unknown> = {}
-  let hasAny = false
-  for (const k of keys) {
-    const v = item[k]
-    if (v !== undefined && v !== '') {
-      if (Array.isArray(v) && v.length === 0) continue
-      obj[k] = v
-      hasAny = true
-    }
-  }
-  return hasAny ? obj : null
+  return buildExtraDataFromItem({
+    questions: Array.isArray(item.questions) ? (item.questions as Parameters<typeof buildExtraDataFromItem>[0]['questions']) : undefined,
+    formFields: Array.isArray(item.formFields) ? (item.formFields as Parameters<typeof buildExtraDataFromItem>[0]['formFields']) : undefined,
+    description: item.description,
+    fileUrl: item.fileUrl,
+    fileKey: item.fileKey,
+  })
 }
 
 export async function GET(

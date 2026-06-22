@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 /**
  * Public API: list published courses (no auth).
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
         title: c.title,
         category: c.category,
         price: c.price,
-        imageUrl: c.imageUrl,
+        imageUrl: c.imageUrl ? getSafeCourseImageUrl(c.imageUrl) : null,
         duration: c.duration,
         level: c.level,
         language: c.language,

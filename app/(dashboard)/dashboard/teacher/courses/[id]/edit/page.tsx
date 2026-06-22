@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { CreateCourseForm } from '@/components/teacher/create-course-form'
 import type { CourseFormData, ContentItem } from '@/components/teacher/create-course-form'
 import { EMPTY_SALES_PAGE_DATA, type SalesPageData } from '@/lib/course-sales'
+import { normalizeQuizQuestions, parseExtraData } from '@/lib/course-content'
 
 type CourseApi = {
   id: string
@@ -32,11 +33,14 @@ type CourseApi = {
       duration?: string
       url?: string
       position: number
+      questions?: ContentItem['questions']
+      formFields?: ContentItem['formFields']
+      description?: string
+      fileUrl?: string
+      fileKey?: string
       question?: string
       options?: string[]
       correctOptionIndices?: number[]
-      description?: string
-      fileUrl?: string
     }[]
   }[]
 }
@@ -57,18 +61,30 @@ function mapApiToFormData(c: CourseApi): CourseFormData {
     sections: c.sections.map((sec) => ({
       id: sec.id,
       title: sec.title,
-      items: sec.items.map((item) => ({
-        id: item.id,
-        type: item.type as ContentItem['type'],
-        title: item.title,
-        duration: item.duration ?? '',
-        url: item.url ?? '',
-        question: item.question,
-        options: item.options,
-        correctOptionIndices: item.correctOptionIndices,
-        description: item.description,
-        fileUrl: item.fileUrl,
-      })),
+      items: sec.items.map((item) => {
+        const extra = parseExtraData({
+          questions: item.questions,
+          formFields: item.formFields,
+          description: item.description,
+          fileUrl: item.fileUrl,
+          fileKey: item.fileKey,
+          question: item.question,
+          options: item.options,
+          correctOptionIndices: item.correctOptionIndices,
+        })
+        return {
+          id: item.id,
+          type: item.type as ContentItem['type'],
+          title: item.title,
+          duration: item.duration ?? '',
+          url: item.url ?? '',
+          questions: normalizeQuizQuestions(extra),
+          formFields: extra.formFields,
+          description: extra.description,
+          fileUrl: extra.fileUrl,
+          fileKey: extra.fileKey,
+        }
+      }),
     })),
   }
 }

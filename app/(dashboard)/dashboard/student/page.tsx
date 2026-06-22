@@ -5,7 +5,8 @@ import { GradientText } from "@/components/text/gradient-text"
 import Link from "next/link"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
-import { formatRelativeAr } from "@/lib/format-date"
+import { formatRelativeAr } from '@/lib/format-date'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 function parseDurationToMinutes(duration: string | null | undefined): number {
   if (!duration) return 0
@@ -121,9 +122,7 @@ export default async function StudentDashboard() {
         progress: progressPct,
         lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
         nextLesson: nextItem ? nextItem.title : "مكتملة",
-        image:
-          c.imageUrl ||
-          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        image: getSafeCourseImageUrl(c.imageUrl),
         totalItems,
         completedItems,
         completed: totalItems > 0 && completedItems === totalItems,

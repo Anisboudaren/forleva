@@ -17,9 +17,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Award, Search, Loader2, Copy, MessageCircle, Eye, Phone } from 'lucide-react'
+import { Award, Search, Loader2, Copy, MessageCircle, Eye, Phone, Upload, FileText, Download } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 import { CERTIFICATE_TYPE_LABELS } from '@/lib/certificate-constants'
+import { isCertificateImageMime } from '@/lib/certificate-file'
 import type { CertificateRequestStatus, CertificateType } from '@/lib/schema-enums'
 
 type CertRequest = {
@@ -33,6 +34,11 @@ type CertRequest = {
   note: string | null
   status: CertificateRequestStatus
   adminNotes: string | null
+  certificateFileUrl: string | null
+  certificateFileKey: string | null
+  certificateFileName: string | null
+  certificateFileMime: string | null
+  certificateUploadedAt: string | null
   createdAt: string
   user: {
     id: string
@@ -105,6 +111,9 @@ export default function AdminCertificatesPage() {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [selected, setSelected] = useState<CertRequest | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [certFile, setCertFile] = useState<File | null>(null)
+  const [uploadingCert, setUploadingCert] = useState(false)
+  const [uploadCertError, setUploadCertError] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 300)
@@ -150,6 +159,34 @@ export default function AdminCertificatesPage() {
       }
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  const handleCertUpload = async () => {
+    if (!selected || !certFile || uploadingCert) return
+    setUploadingCert(true)
+    setUploadCertError(null)
+    try {
+      const form = new FormData()
+      form.append('file', certFile)
+      const res = await fetch(`/api/admin/certificate-requests/${selected.id}/certificate-file`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.ok === false) {
+        setUploadCertError(data.error || 'فشل رفع ملف الشهادة')
+        return
+      }
+      const updated = data.request as CertRequest
+      setRequests((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+      setSelected(updated)
+      setCertFile(null)
+    } catch {
+      setUploadCertError('تعذر الاتصال بالسيرفر')
+    } finally {
+      setUploadingCert(false)
     }
   }
 
@@ -390,6 +427,84 @@ export default function AdminCertificatesPage() {
                       <span className="text-gray-600 block mb-1">ملاحظة الطالب</span>
                       <p className="text-gray-800">{selected.note}</p>
                     </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-gray-900">ملف الشهادة (صورة أو PDF)</h3>
+                <p className="text-xs text-gray-500">
+                  يُرفع إلى التخزين السحابي في مجلد students-certificates. عند الرفع تُحدَّث الحالة إلى «مكتمل» تلقائياً.
+                </p>
+                <div className="rounded-lg border border-gray-200 p-3 space-y-3">
+                  {selected.certificateFileKey ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-700">
+                        <span className="text-gray-500">الملف الحالي: </span>
+                        {selected.certificateFileName || 'شهادة'}
+                      </p>
+                      {selected.certificateUploadedAt && (
+                        <p className="text-xs text-gray-500">
+                          رُفع في {formatDate(selected.certificateUploadedAt)}
+                        </p>
+                      )}
+                      {isCertificateImageMime(selected.certificateFileMime) && (
+                        <div className="rounded-lg border border-gray-100 overflow-hidden bg-gray-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`/api/student/certificate-requests/${selected.id}/file?disposition=inline`}
+                            alt="معاينة الشهادة"
+                            className="w-full max-h-64 object-contain"
+                          />
+                        </div>
+                      )}
+                      <a
+                        href={`/api/student/certificate-requests/${selected.id}/file`}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-amber-700 hover:text-amber-800"
+                      >
+                        <Download className="h-4 w-4" />
+                        تحميل الملف
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">لم يُرفع ملف بعد.</p>
+                  )}
+
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf,.pdf"
+                    className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
+                    onChange={(e) => {
+                      setCertFile(e.target.files?.[0] ?? null)
+                      setUploadCertError(null)
+                    }}
+                    disabled={uploadingCert || selected.status === 'CANCELLED'}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleCertUpload}
+                    disabled={!certFile || uploadingCert || selected.status === 'CANCELLED'}
+                  >
+                    {uploadingCert ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {uploadingCert ? 'جاري الرفع...' : 'رفع / استبدال الشهادة'}
+                  </Button>
+                  {uploadCertError && (
+                    <p className="text-xs text-red-600" role="alert">
+                      {uploadCertError}
+                    </p>
+                  )}
+                  {selected.status === 'CANCELLED' && (
+                    <p className="text-xs text-red-600 flex items-center gap-1">
+                      <FileText className="h-3.5 w-3.5" />
+                      لا يمكن الرفع لطلب ملغى
+                    </p>
                   )}
                 </div>
               </section>

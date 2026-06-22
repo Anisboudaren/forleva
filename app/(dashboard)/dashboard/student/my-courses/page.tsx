@@ -6,6 +6,7 @@ import Link from "next/link"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
 import { formatRelativeAr } from "@/lib/format-date"
+import { getSafeCourseImageUrl } from "@/lib/safe-course-image"
 import type { OrderStatus } from "@/lib/schema-enums"
 
 type OrderWithCourse = {
@@ -157,9 +158,7 @@ export default async function MyCoursesPage({
         completedLessons,
         lastAccessed: lastAt ? formatRelativeAr(lastAt) : "لم تبدأ بعد",
         startedAtLabel: startedAt ? formatRelativeAr(startedAt) : "لم تبدأ بعد",
-        image:
-          course.imageUrl ||
-          "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop",
+        image: getSafeCourseImageUrl(course.imageUrl),
         status,
         category: course.category,
         orderStatus: order.status,

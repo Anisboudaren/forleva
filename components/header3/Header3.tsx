@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { User, Search, X } from 'lucide-react'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 type UserSession = { userId: string; role: 'STUDENT' | 'TEACHER'; email: string | null }
 type SearchCourse = {
@@ -190,10 +191,7 @@ export function Header3 () {
                   >
                     <div className="relative w-16 h-12 rounded-lg overflow-hidden flex-shrink-0">
                       <Image
-                        src={
-                          course.imageUrl ||
-                          'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop'
-                        }
+                        src={getSafeCourseImageUrl(course.imageUrl)}
                         alt={course.title}
                         fill
                         className="object-cover"

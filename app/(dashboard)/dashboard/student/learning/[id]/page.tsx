@@ -4,6 +4,11 @@ import { getUserSession } from "@/lib/user-session"
 import { GradientText } from "@/components/text/gradient-text"
 import { BookOpen, User, FileText } from "lucide-react"
 import LearningStudioClient from "@/components/student/learning-studio-client"
+import {
+  parseExtraData,
+  sanitizeFormForStudent,
+  sanitizeQuizForStudent,
+} from "@/lib/course-content"
 
 type SectionItem = {
   id: string
@@ -78,15 +83,30 @@ export default async function LearningStudioPage({
       id: sec.id,
       title: sec.title,
       position: sec.position,
-      items: sec.items.map((item: SectionItem) => ({
-        id: item.id,
-        type: item.type,
-        title: item.title,
-        duration: item.duration ?? undefined,
-        url: item.url ?? undefined,
-        position: item.position,
-        extraData: item.extraData ?? undefined,
-      })),
+      items: sec.items.map((item: SectionItem) => {
+        const rawExtra = parseExtraData(item.extraData)
+        const type = item.type.toUpperCase()
+        let studentExtra: Record<string, unknown> = {}
+        if (type === "QUIZ") {
+          studentExtra = sanitizeQuizForStudent(rawExtra)
+        } else if (type === "SURVEY") {
+          studentExtra = sanitizeFormForStudent(rawExtra)
+        } else if (rawExtra.description) {
+          studentExtra = { description: rawExtra.description }
+        }
+        if (type === "PDF" && rawExtra.fileUrl) {
+          studentExtra = { ...studentExtra, fileUrl: rawExtra.fileUrl }
+        }
+        return {
+          id: item.id,
+          type: item.type,
+          title: item.title,
+          duration: item.duration ?? undefined,
+          url: item.url ?? undefined,
+          position: item.position,
+          studentExtra,
+        }
+      }),
     })),
   }
 

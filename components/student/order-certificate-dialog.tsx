@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ type OrderCertificateDialogProps = {
 }
 
 export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateDialogProps) {
+  const router = useRouter()
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -107,6 +109,7 @@ export function OrderCertificateDialog({ open, onOpenChange }: OrderCertificateD
         return
       }
       setSubmitSuccess(true)
+      router.refresh()
       setTimeout(() => onOpenChange(false), 1500)
     } catch {
       setSubmitError('حدث خطأ في الاتصال')

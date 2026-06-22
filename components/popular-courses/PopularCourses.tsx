@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 // Fallback (used while loading, and by other demo components).
 export const courses = [
@@ -139,9 +140,7 @@ export function PopularCourses () {
           rating: undefined,
           students: undefined,
           price: c.price,
-          image:
-            c.imageUrl ||
-            'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop',
+          image: getSafeCourseImageUrl(c.imageUrl),
           category: c.category,
         }))
         setRealCourses(mapped)

@@ -97,6 +97,7 @@ model User {
   questions       CourseQuestion[]
   questionReplies CourseQuestionReply[]
   certificateRequests CertificateRequest[]
+  itemSubmissions CourseItemSubmission[]
 }
 
 model Course {
@@ -125,6 +126,7 @@ model Course {
   notes            CourseNote[]
   questions        CourseQuestion[]
   certificateRequests CertificateRequest[]
+  itemSubmissions  CourseItemSubmission[]
 
   @@index([teacherId])
   @@index([status])
@@ -214,6 +216,11 @@ model CertificateRequest {
   note            String?
   status          CertificateRequestStatus @default(PENDING)
   adminNotes      String?
+  certificateFileUrl      String?
+  certificateFileKey      String?
+  certificateFileName     String?
+  certificateFileMime     String?
+  certificateUploadedAt   DateTime?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
   user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -245,10 +252,31 @@ model CourseSectionItem {
   url       String?
   position  Int
   extraData Json?
-  section   CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  progress  CourseItemProgress[]
+  section     CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress    CourseItemProgress[]
+  submissions CourseItemSubmission[]
 
   @@index([sectionId])
+}
+
+model CourseItemSubmission {
+  id          String      @id @default(cuid())
+  userId      String
+  courseId    String
+  itemId      String
+  type        ContentType
+  answers     Json
+  score       Int?
+  submittedAt DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  item   CourseSectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+  @@index([userId, courseId])
+  @@index([itemId])
 }
 
 model CourseItemProgress {
