@@ -227,16 +227,16 @@ export function Header3 () {
       dir="rtl"
     >
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-        <div className="relative flex items-center justify-between gap-4">
-          {/* Logo on the far right (RTL) */}
-          <div className="flex-shrink-0 order-last">
+        {/* Mobile header row */}
+        <div className="flex lg:hidden items-center justify-between gap-4">
+          <div className="flex-shrink-0">
             <Link
               href="/"
               title="Forleva"
               className="flex rounded outline-none focus:ring-1 focus:ring-gray-900 focus:ring-offset-2"
             >
               <Image
-                className="w-auto h-12 lg:h-16 transition-opacity duration-300"
+                className="w-auto h-12 transition-opacity duration-300"
                 src="/logo with brand name (black colored ).png"
                 alt="Forleva Logo"
                 width={300}
@@ -246,89 +246,7 @@ export function Header3 () {
             </Link>
           </div>
 
-          {/* Desktop Navigation - Centered */}
-          <div className="hidden lg:absolute lg:inset-y-0 lg:flex lg:items-center lg:justify-center lg:w-full lg:pointer-events-none">
-            <nav className="flex items-center gap-6 lg:gap-8 pointer-events-auto">
-              <Link
-                href={getNavHref('how-it-works')}
-                className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  isHowItWorksPage || (isHomePage && activeSection === 'how-it-works')
-                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
-                    : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
-                }`}
-              >
-                كيف تعمل المنصة
-              </Link>
-
-              <Link
-                href={getNavHref('choose-course')}
-                onClick={(e) => smoothScrollTo(e, 'choose-course')}
-                className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  isHomePage && activeSection === 'choose-course' 
-                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
-                    : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
-                }`}
-              >
-                كيف تختار الدورة المناسبة
-              </Link>
-
-              <Link
-                href={getNavHref('courses')}
-                onClick={(e) => smoothScrollTo(e, 'courses')}
-                className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  isHomePage && activeSection === 'courses' 
-                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300' 
-                    : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
-                }`}
-              >
-                الدورات
-              </Link>
-
-              <Link
-                href={getNavHref('certificates')}
-                className={`relative text-sm lg:text-base font-medium transition-all duration-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
-                  isCertificatesPage
-                    ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
-                    : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
-                }`}
-              >
-                شهادات
-              </Link>
-            </nav>
-          </div>
-
-          {/* Desktop Search + CTA */}
-          <div className="hidden lg:flex lg:items-center lg:gap-4 lg:ml-auto">
-            {renderSearch('relative w-80')}
-            {session ? (
-              <Link
-                href="/dashboard"
-                className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
-                style={{
-                  background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
-                }}
-              >
-                <User className="w-4 h-4 relative z-10" />
-                <span className="relative z-10">حسابي</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="relative inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group"
-                style={{
-                  background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
-                }}
-              >
-                <User className="w-4 h-4 relative z-10" />
-                <span className="relative z-10">دخول / تسجيل</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="flex lg:hidden">
+          <div className="flex">
             <button
               type="button"
               className="transition-all duration-200 p-2 rounded-md text-gray-900"
@@ -367,6 +285,92 @@ export function Header3 () {
                 </svg>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Desktop header row — 3-column grid prevents nav overlap with search/account */}
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-6">
+          {/* Logo (right in RTL) */}
+          <div className="flex-shrink-0 justify-self-start">
+            <Link
+              href="/"
+              title="Forleva"
+              className="flex rounded outline-none focus:ring-1 focus:ring-gray-900 focus:ring-offset-2"
+            >
+              <Image
+                className="w-auto h-16 transition-opacity duration-300"
+                src="/logo with brand name (black colored ).png"
+                alt="Forleva Logo"
+                width={300}
+                height={120}
+                priority
+              />
+            </Link>
+          </div>
+
+          {/* Center navigation */}
+          <nav className="flex items-center justify-center gap-4 xl:gap-6 px-2">
+            <Link
+              href={getNavHref('how-it-works')}
+              className={`relative text-sm xl:text-base font-medium transition-all duration-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
+                isHowItWorksPage || (isHomePage && activeSection === 'how-it-works')
+                  ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
+                  : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
+              }`}
+            >
+              كيف تعمل المنصة
+            </Link>
+
+            <Link
+              href={getNavHref('choose-course')}
+              onClick={(e) => smoothScrollTo(e, 'choose-course')}
+              className={`relative text-sm xl:text-base font-medium transition-all duration-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
+                isHomePage && activeSection === 'choose-course'
+                  ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
+                  : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
+              }`}
+            >
+              كيف تختار الدورة المناسبة
+            </Link>
+
+            <Link
+              href={getNavHref('courses')}
+              onClick={(e) => smoothScrollTo(e, 'courses')}
+              className={`relative text-sm xl:text-base font-medium transition-all duration-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
+                isHomePage && activeSection === 'courses'
+                  ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
+                  : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
+              }`}
+            >
+              الدورات
+            </Link>
+
+            <Link
+              href={getNavHref('certificates')}
+              className={`relative text-sm xl:text-base font-medium transition-all duration-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-offset-2 whitespace-nowrap text-gray-900 hover:text-gray-600 focus:ring-gray-900 group ${
+                isCertificatesPage
+                  ? 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:transition-all after:duration-300'
+                  : 'after:absolute after:bottom-0 after:right-0 after:left-0 after:h-0.5 after:bg-gradient-to-r after:from-[#fbbf24] after:via-[#f59e0b] after:to-[#d97706] after:scale-x-0 after:transition-transform after:duration-300 after:origin-center group-hover:after:scale-x-100'
+              }`}
+            >
+              شهادات
+            </Link>
+          </nav>
+
+          {/* Search + account (left in RTL) */}
+          <div className="flex items-center gap-3 justify-self-end min-w-0">
+            {renderSearch('relative w-full max-w-[220px] xl:max-w-[260px]')}
+            <Link
+              href={session ? '/dashboard' : '/login'}
+              className="relative inline-flex flex-shrink-0 items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 whitespace-nowrap overflow-hidden group min-w-[8.5rem]"
+              style={{
+                background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+              }}
+            >
+              <User className="w-4 h-4 relative z-10" />
+              <span className="relative z-10">{session ? 'حسابي' : 'دخول / تسجيل'}</span>
+              <span className="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></span>
+            </Link>
           </div>
         </div>
 
