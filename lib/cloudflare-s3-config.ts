@@ -135,13 +135,13 @@ export function getCloudflareS3ConfigIssues(): StorageConfigIssue[] {
         ? 'أضف CLOUDFLARE_ACCOUNT_ID (من لوحة Cloudflare) أو غيّر CLOUDFLARE_S3_ENDPOINT إلى https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com'
         : 'أضف CLOUDFLARE_ACCOUNT_ID أو CLOUDFLARE_S3_ENDPOINT',
     })
-  } else if (!process.env.CLOUDFLARE_S3_PUBLIC_BASE_URL?.trim()) {
+  } else if (!getCloudflarePublicBaseUrl()) {
     const endpoint = getCloudflareS3Endpoint()!.toLowerCase()
     if (endpoint.includes('r2.cloudflarestorage.com')) {
       issues.push({
         code: 'PUBLIC_URL_RECOMMENDED',
         message: 'يُنصح بإضافة رابط عام للصور',
-        hint: 'أضف CLOUDFLARE_S3_PUBLIC_BASE_URL (مثل https://pub-xxxx.r2.dev)',
+        hint: 'أضف cloudflare_public_base_url (مثل https://pub-xxxx.r2.dev)',
       })
     }
   }
@@ -181,8 +181,7 @@ export function getCloudflareImageHosts(): string[] {
     }
   }
 
-  add(process.env.CLOUDFLARE_S3_PUBLIC_BASE_URL)
-  add(getCloudflareS3Endpoint())
+  add(getCloudflarePublicBaseUrl() ?? undefined)
 
   const bucket = process.env.CLOUDFLARE_S3_BUCKET?.trim()
   const endpoint = getCloudflareS3Endpoint()
@@ -198,32 +197,37 @@ export function getCloudflareImageHosts(): string[] {
   return [...new Set(hosts)]
 }
 
-/** Base URL for publicly addressable course images (r2.dev or path-style R2 endpoint). */
+/** Public r2.dev or custom domain for browser-accessible object URLs. */
+export function getCloudflarePublicBaseUrl(): string | null {
+  const candidates = [
+    process.env.cloudflare_public_base_url,
+    process.env.CLOUDFLARE_PUBLIC_BASE_URL,
+    process.env.CLOUDFLARE_S3_PUBLIC_BASE_URL,
+  ]
+  for (const value of candidates) {
+    const trimmed = value?.trim().replace(/\/$/, '')
+    if (trimmed) return trimmed
+  }
+  return null
+}
+
+
+/** @deprecated Use getCloudflarePublicBaseUrl */
 export function getCloudflareR2ImageBaseUrl(): string | null {
-  const publicBase = process.env.CLOUDFLARE_S3_PUBLIC_BASE_URL?.trim().replace(/\/$/, '')
-  if (publicBase) return publicBase
+  return getCloudflarePublicBaseUrl()
+}
 
-  const bucket = process.env.CLOUDFLARE_S3_BUCKET?.trim()
-  const endpoint = getCloudflareS3Endpoint()?.replace(/\/$/, '')
-  if (!bucket || !endpoint) return null
-
-  if (getCloudflareS3ForcePathStyle()) {
-    return `${endpoint}/${bucket}`
-  }
-
-  try {
-    const ep = new URL(endpoint)
-    return `${ep.protocol}//${bucket}.${ep.host}`
-  } catch {
-    return `${endpoint}/${bucket}`
-  }
+/** Same-origin proxy when the bucket has no public r2.dev / custom domain URL. */
+export function getMediaProxyUrl(key: string): string {
+  const normalizedKey = key.replace(/^\//, '')
+  return `/api/media/r2/${normalizedKey}`
 }
 
 export function getPublicObjectUrl(key: string): string {
   const normalizedKey = key.replace(/^\//, '')
-  const base = getCloudflareR2ImageBaseUrl()
-  if (!base) {
-    throw new Error('Cloudflare R2 image base URL is not configured')
+  const publicBase = getCloudflarePublicBaseUrl()
+  if (publicBase) {
+    return `${publicBase}/${normalizedKey}`
   }
-  return `${base}/${normalizedKey}`
+  return getMediaProxyUrl(normalizedKey)
 }

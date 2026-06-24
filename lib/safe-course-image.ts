@@ -1,3 +1,5 @@
+import { getCloudflarePublicBaseUrl, getMediaProxyUrl } from '@/lib/cloudflare-s3-config'
+
 /**
  * Hostnames allowed in next.config images.remotePatterns.
  * User-provided course imageUrl must match one of these or we show a placeholder.
@@ -13,7 +15,7 @@ const ALLOWED_IMAGE_HOSTS = new Set([
   'i.ytimg.com',
 ])
 
-const R2_HOST_SUFFIXES = ['.r2.dev', '.r2.cloudflarestorage.com']
+const PUBLIC_R2_HOST_SUFFIXES = ['.r2.dev']
 
 export const PLACEHOLDER_COURSE_IMAGE =
   'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop'
@@ -27,16 +29,16 @@ function getEnvCloudflareHosts(): string[] {
     .filter(Boolean)
 }
 
-function getR2ImageBaseUrl(): string | null {
-  const fromEnv = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_IMAGE_BASE?.trim().replace(/\/$/, '')
-  return fromEnv || null
+function isPrivateR2StorageHost(host: string): boolean {
+  return host.toLowerCase().endsWith('.r2.cloudflarestorage.com')
 }
 
 function isAllowedHost(host: string): boolean {
   const normalized = host.toLowerCase()
+  if (isPrivateR2StorageHost(normalized)) return false
   if (ALLOWED_IMAGE_HOSTS.has(normalized)) return true
   if (getEnvCloudflareHosts().includes(normalized)) return true
-  return R2_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+  return PUBLIC_R2_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
 }
 
 /** Extract object key from R2 S3 API URLs (path-style or virtual-hosted). */
@@ -66,48 +68,47 @@ function extractMediaProxyKey(url: string): string | null {
   return decodeURIComponent(match[1])
 }
 
-function buildCloudflareImageUrl(key: string): string | null {
-  const base = getR2ImageBaseUrl()
+function buildPublicR2ImageUrl(key: string): string | null {
+  const base = getCloudflarePublicBaseUrl()
   if (!base) return null
   return `${base}/${key.replace(/^\//, '')}`
 }
 
+function resolveR2ObjectKey(url: string): string | null {
+  const trimmed = url.trim()
+  if (!trimmed) return null
+
+  if (trimmed.startsWith('/api/media/r2/')) {
+    return trimmed.slice('/api/media/r2/'.length)
+  }
+
+  const proxyKey = extractMediaProxyKey(trimmed)
+  if (proxyKey) return proxyKey
+
+  return extractR2ObjectKeyFromUrl(trimmed)
+}
+
 /**
- * Returns an absolute Cloudflare (or other allowed CDN) URL for next/image.
- * Rewrites old localhost /api/media/r2/... paths to the R2 endpoint.
+ * Returns a browser-loadable URL for course images.
+ * Private R2 S3 API URLs are rewritten to /api/media/r2/... unless a public r2.dev base is set.
  */
 export function getSafeCourseImageUrl(url: string | null | undefined): string {
   if (!url || typeof url !== 'string') return PLACEHOLDER_COURSE_IMAGE
   const trimmed = url.trim()
   if (!trimmed) return PLACEHOLDER_COURSE_IMAGE
 
-  const proxyKey =
-    extractMediaProxyKey(trimmed) ??
-    (trimmed.startsWith('/api/media/r2/')
-      ? trimmed.slice('/api/media/r2/'.length)
-      : null)
-
-  if (proxyKey) {
-    const cloudflareUrl = buildCloudflareImageUrl(proxyKey)
-    if (cloudflareUrl) return cloudflareUrl
+  const r2Key = resolveR2ObjectKey(trimmed)
+  if (r2Key) {
+    const publicUrl = buildPublicR2ImageUrl(r2Key)
+    if (publicUrl) return publicUrl
+    return getMediaProxyUrl(r2Key)
   }
 
   try {
     const parsed = new URL(trimmed)
     if (isAllowedHost(parsed.hostname)) return trimmed
   } catch {
-    // not an absolute URL — try rebuilding from R2 key below
-  }
-
-  const r2Key = extractR2ObjectKeyFromUrl(trimmed)
-  if (r2Key) {
-    const cloudflareUrl = buildCloudflareImageUrl(r2Key)
-    if (cloudflareUrl) return cloudflareUrl
-    try {
-      if (isAllowedHost(new URL(trimmed).hostname)) return trimmed
-    } catch {
-      // ignore
-    }
+    // not an absolute URL
   }
 
   return PLACEHOLDER_COURSE_IMAGE

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { normalizeSalesPageData } from '@/lib/course-sales'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
 
 /**
  * Public API: get a single published course by ID (no auth).
@@ -39,7 +40,7 @@ export async function GET(
       title: course.title,
       category: course.category,
       price: course.price,
-      imageUrl: course.imageUrl,
+      imageUrl: course.imageUrl ? getSafeCourseImageUrl(course.imageUrl) : null,
       videoUrl: course.videoUrl ?? undefined,
       duration: course.duration,
       level: course.level,

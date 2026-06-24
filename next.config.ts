@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next'
-import { getCloudflareImageHosts, getCloudflareR2ImageBaseUrl } from './lib/cloudflare-s3-config'
+import { getCloudflareImageHosts, getCloudflarePublicBaseUrl } from './lib/cloudflare-s3-config'
 
 const cloudflareImageHosts = getCloudflareImageHosts()
-const cloudflareR2ImageBase = getCloudflareR2ImageBaseUrl() ?? ''
+const cloudflareR2ImageBase = getCloudflarePublicBaseUrl() ?? ''
 
 const nextConfig: NextConfig = {
   env: {
