@@ -9,6 +9,19 @@ datasource db {
   provider = "postgresql"
 }
 
+model SiteSettings {
+  id              String   @id @default("global")
+  siteTitle       String?
+  siteDescription String?
+  ogImageUrl      String?
+  ogImageKey      String?
+  faviconUrl      String?
+  faviconKey      String?
+  logoUrl         String?
+  logoKey         String?
+  updatedAt       DateTime @updatedAt
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN

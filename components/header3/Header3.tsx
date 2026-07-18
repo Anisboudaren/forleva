@@ -27,6 +27,8 @@ export function Header3 () {
   const [searchResults, setSearchResults] = useState<SearchCourse[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [session, setSession] = useState<UserSession | null>(null)
+  const [logoUrl, setLogoUrl] = useState('/logo with brand name (black colored ).png')
+  const [siteTitle, setSiteTitle] = useState('Forleva')
   const pathname = usePathname()
   const isHomePage = pathname === '/'
   const isCertificatesPage = pathname === '/certificates'
@@ -37,6 +39,17 @@ export function Header3 () {
       .then((res) => res.json())
       .then((data) => setSession(data.user ?? null))
       .catch(() => setSession(null))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return
+        if (data.logoUrl) setLogoUrl(data.logoUrl)
+        if (data.siteTitle) setSiteTitle(data.siteTitle)
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -232,16 +245,14 @@ export function Header3 () {
           <div className="flex-shrink-0">
             <Link
               href="/"
-              title="Forleva"
+              title={siteTitle}
               className="flex rounded outline-none focus:ring-1 focus:ring-gray-900 focus:ring-offset-2"
             >
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 className="w-auto h-12 transition-opacity duration-300"
-                src="/logo with brand name (black colored ).png"
-                alt="Forleva Logo"
-                width={300}
-                height={120}
-                priority
+                src={logoUrl}
+                alt={`${siteTitle} Logo`}
               />
             </Link>
           </div>
@@ -294,16 +305,14 @@ export function Header3 () {
           <div className="flex-shrink-0 justify-self-start">
             <Link
               href="/"
-              title="Forleva"
+              title={siteTitle}
               className="flex rounded outline-none focus:ring-1 focus:ring-gray-900 focus:ring-offset-2"
             >
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 className="w-auto h-16 transition-opacity duration-300"
-                src="/logo with brand name (black colored ).png"
-                alt="Forleva Logo"
-                width={300}
-                height={120}
-                priority
+                src={logoUrl}
+                alt={`${siteTitle} Logo`}
               />
             </Link>
           </div>

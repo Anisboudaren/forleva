@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import bcrypt from 'bcrypt'
 import { getAdminSession } from '@/lib/auth-session'
 import { prisma } from '@/lib/db'
 import type { UserRole } from '@/lib/schema-enums'
@@ -66,6 +67,10 @@ export async function PATCH(
       typeof body.avatarKey === 'string' ? body.avatarKey.trim() || null : undefined
     const roleInput = (body.role as string)?.toLowerCase()
     const role: UserRole = roleInput === 'teacher' ? 'TEACHER' : 'STUDENT'
+    const password =
+      typeof body.password === 'string' && body.password.length > 0
+        ? body.password
+        : undefined
 
     if (!fullName || !phone) {
       return NextResponse.json(
@@ -76,6 +81,12 @@ export async function PATCH(
     if (!/^0[567][0-9]{8}$/.test(phone)) {
       return NextResponse.json(
         { error: 'رقم الهاتف غير صالح (مثال: 05XX XXX XX XX)' },
+        { status: 400 }
+      )
+    }
+    if (password !== undefined && password.length < 8) {
+      return NextResponse.json(
+        { error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' },
         { status: 400 }
       )
     }
@@ -105,6 +116,7 @@ export async function PATCH(
         whatsapp: whatsapp || null,
         email: email || null,
         role,
+        ...(password !== undefined && { passwordHash: await bcrypt.hash(password, 10) }),
         ...(bio !== undefined && { bio: role === 'TEACHER' ? bio : null }),
         ...(role !== 'TEACHER'
           ? { avatarUrl: null, avatarKey: null }

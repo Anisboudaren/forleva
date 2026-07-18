@@ -102,6 +102,7 @@ export default function TeacherSettingsClient() {
           email: email.trim(),
           phone: phone.trim(),
           whatsapp: whatsapp.trim(),
+          bio: bio.trim(),
           notificationPrefs: prefs,
         }),
       })
@@ -168,10 +169,14 @@ export default function TeacherSettingsClient() {
             </div>
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-gray-800">نبذة عن المدرّس</p>
-              <p className="text-xs text-gray-500">تُعدّل من لوحة الإدارة وتظهر في صفحات الدورات</p>
-              <div className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 whitespace-pre-wrap min-h-[88px]">
-                {bio.trim() || "لم تتم إضافة نبذة بعد."}
-              </div>
+              <p className="text-xs text-gray-500">تظهر في صفحات الدورات ولوحة المدرّس</p>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="اكتب نبذة قصيرة عنك تظهر للطلاب في صفحات دوراتك..."
+                rows={4}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y min-h-[96px]"
+              />
             </div>
             <div className="flex justify-end">
               <button disabled={!canSave} className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg disabled:opacity-50">

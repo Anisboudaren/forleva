@@ -183,6 +183,7 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
     role: "student" as UserRoleType,
     avatarUrl: "",
     avatarKey: "",
+    password: "",
   })
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -271,6 +272,7 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
       role: user.role,
       avatarUrl: user.avatarUrl || "",
       avatarKey: "",
+      password: "",
     })
     setEditError(null)
     setOpenMenuId(null)
@@ -295,6 +297,7 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
           role: editForm.role,
           avatarUrl: editForm.role === "teacher" ? editForm.avatarUrl : "",
           ...(editForm.avatarKey ? { avatarKey: editForm.avatarKey } : {}),
+          ...(editForm.password ? { password: editForm.password } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -880,6 +883,18 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                         <option value="student">طالب</option>
                         <option value="teacher">معلم</option>
                       </select>
+                    </FieldGroup>
+                    <FieldGroup>
+                      <FieldLabel>كلمة مرور جديدة</FieldLabel>
+                      <FieldDescription>
+                        اتركه فارغاً للإبقاء على كلمة المرور الحالية. 8 أحرف على الأقل.
+                      </FieldDescription>
+                      <PasswordInput
+                        value={editForm.password}
+                        onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                      />
                     </FieldGroup>
                     {editForm.role === "teacher" && (
                       <FieldGroup>

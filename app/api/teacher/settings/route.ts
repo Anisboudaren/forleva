@@ -76,6 +76,7 @@ export async function PATCH(req: Request) {
   const email = typeof body.email === "string" ? body.email.trim() : undefined
   const phone = typeof body.phone === "string" ? body.phone.trim() : undefined
   const whatsapp = typeof body.whatsapp === "string" ? body.whatsapp.trim() : undefined
+  const bio = typeof body.bio === "string" ? body.bio.trim() : undefined
   const notificationPrefs =
     typeof body.notificationPrefs !== "undefined" ? parsePrefs(body.notificationPrefs) : undefined
 
@@ -100,6 +101,7 @@ export async function PATCH(req: Request) {
   if (typeof email !== "undefined") data.email = email || null
   if (typeof phone !== "undefined") data.phone = phone || null
   if (typeof whatsapp !== "undefined") data.whatsapp = whatsapp || null
+  if (typeof bio !== "undefined") data.bio = bio || null
   if (notificationPrefs) data.notificationPrefs = notificationPrefs
 
   if (Object.keys(data).length === 0) return jsonError("لا توجد تغييرات", 400)
@@ -108,7 +110,7 @@ export async function PATCH(req: Request) {
     const updated = await prisma.user.update({
       where: { id: session.userId },
       data,
-      select: { id: true, fullName: true, email: true, phone: true, whatsapp: true, notificationPrefs: true },
+      select: { id: true, fullName: true, email: true, phone: true, whatsapp: true, bio: true, notificationPrefs: true },
     })
     return NextResponse.json({
       user: {

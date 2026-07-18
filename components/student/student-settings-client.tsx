@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { User, Loader2, Save } from "lucide-react"
+import { User, Loader2, Save, Lock } from "lucide-react"
 import { DashboardContentCard } from "@/components/dashboard/DashboardCard"
 import { GradientText } from "@/components/text/gradient-text"
+import { PasswordInput } from "@/components/ui/password-input"
 
 type UserSettings = {
   id: string
@@ -26,6 +27,13 @@ export default function StudentSettingsClient() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [whatsapp, setWhatsapp] = useState("")
+
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passSaving, setPassSaving] = useState(false)
+  const [passError, setPassError] = useState<string | null>(null)
+  const [passSuccess, setPassSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -96,6 +104,32 @@ export default function StudentSettingsClient() {
       setError(e?.message || "حدث خطأ")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const savePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (passSaving) return
+    setPassSaving(true)
+    setPassError(null)
+    setPassSuccess(null)
+    try {
+      const res = await fetch("/api/student/settings/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || "فشل تحديث كلمة المرور")
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setPassSuccess("تم تحديث كلمة المرور بنجاح")
+    } catch (e: any) {
+      setPassError(e?.message || "حدث خطأ")
+    } finally {
+      setPassSaving(false)
     }
   }
 
@@ -208,11 +242,44 @@ export default function StudentSettingsClient() {
         )}
       </DashboardContentCard>
 
-      <DashboardContentCard title="ملاحظة" description="كلمة المرور والإشعارات" icon={User}>
-        <p className="text-sm text-gray-600 leading-7">
-          حالياً هذه الصفحة تدعم تحديث معلوماتك الأساسية. إذا أردت، سأضيف بعد ذلك:
-          تغيير كلمة المرور + تفضيلات الإشعارات.
-        </p>
+      <DashboardContentCard title="الأمان" description="تغيير كلمة المرور" icon={Lock}>
+        <form onSubmit={savePassword} className="space-y-4">
+          {passError && (
+            <div className="rounded-lg bg-red-50 text-red-700 px-4 py-3 text-sm">{passError}</div>
+          )}
+          {passSuccess && (
+            <div className="rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+              {passSuccess}
+            </div>
+          )}
+          <div className="grid gap-4 md:grid-cols-3">
+            <PasswordInput
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="كلمة المرور الحالية"
+            />
+            <PasswordInput
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="كلمة المرور الجديدة"
+            />
+            <PasswordInput
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="تأكيد كلمة المرور"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={passSaving || !currentPassword || !newPassword || !confirmPassword}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {passSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              تحديث كلمة المرور
+            </button>
+          </div>
+        </form>
       </DashboardContentCard>
     </div>
   )
