@@ -42,6 +42,18 @@ export function getVimeoUploadErrorHint(code?: string): string {
       return 'انتظر قليلاً ثم حاول مرة أخرى (حد الرفع لكل معلم).'
     case 'NETWORK_ERROR':
       return 'تحقق من الاتصال بالإنترنت أو أن السيرفر يعمل.'
+    case 'TUS_NETWORK_ERROR':
+      return 'انقطع الاتصال أثناء الرفع إلى Vimeo — أعد المحاولة (الرفع يدعم الاستئناف).'
+    case 'TUS_UPLOAD_FAILED':
+    case 'TUS_OFFSET_STALLED':
+      return 'فشل جزء من الرفع إلى Vimeo — أعد المحاولة.'
+    case 'VIMEO_UPLOAD_INCOMPLETE':
+      return 'Vimeo لم يؤكد اكتمال الرفع بعد — انتظر قليلاً ثم أعد المحاولة.'
+    case 'MISSING_UPLOAD_TICKET':
+    case 'UPLOAD_CREATE_FAILED':
+      return 'فشل إنشاء تذكرة الرفع — تحقق من توكن Vimeo وسجلات السيرفر.'
+    case 'UPLOAD_COMPLETE_FAILED':
+      return 'اكتمل الرفع لكن فشل التحقق — راجع سجلات السيرفر.'
     case 'NGINX_BODY_TOO_LARGE':
       return 'ارفع حد nginx: client_max_body_size 500M; ثم sudo nginx -t && sudo systemctl reload nginx (راجع docs/nginx-upload-limits.md).'
     case 'NON_JSON_RESPONSE':

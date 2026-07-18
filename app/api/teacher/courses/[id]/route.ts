@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
 import { normalizeSalesPageData } from '@/lib/course-sales'
 import { buildExtraDataFromItem } from '@/lib/course-content'
+import { resolveCourseCategory } from '@/lib/resolve-course-category'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -136,7 +137,9 @@ export async function PATCH(
       status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'PENDING_REVIEW'
       title?: string
       category?: string
+      categoryId?: string
       price?: string | number
+      originalPrice?: string | number | null
       imageUrl?: string
       videoUrl?: string
       duration?: string
@@ -146,6 +149,15 @@ export async function PATCH(
       learningOutcomes?: string[]
       salesPageData?: unknown
       sections?: ApiSection[]
+    }
+
+    const resolveOriginalPrice = (
+      raw: string | number | null | undefined,
+      effectivePrice: number
+    ): number | null => {
+      if (raw === undefined || raw === null || raw === '') return null
+      const parsed = typeof raw === 'number' ? raw : parseInt(String(raw), 10)
+      return Number.isFinite(parsed) && parsed > effectivePrice ? Math.round(parsed) : null
     }
 
     const statusOnly =
@@ -177,13 +189,35 @@ export async function PATCH(
       body.learningOutcomes !== undefined
     if (!hasFullPayload) {
       const normalizedSalesPageData = normalizeSalesPageData(body.salesPageData)
+      const resolvedCategory =
+        body.categoryId !== undefined || body.category !== undefined
+          ? await resolveCourseCategory({
+              categoryId: body.categoryId,
+              categoryName: body.category,
+            })
+          : null
       const updated = await prisma.course.update({
         where: { id },
         data: {
           ...(body.title !== undefined && { title: String(body.title).trim() }),
-          ...(body.category !== undefined && { category: String(body.category).trim() }),
+          ...(resolvedCategory
+            ? {
+                category: resolvedCategory.category,
+                categoryId: resolvedCategory.categoryId,
+              }
+            : {}),
           ...(body.price !== undefined && {
             price: typeof body.price === 'number' ? body.price : parseInt(String(body.price), 10) || 0,
+          }),
+          ...(body.originalPrice !== undefined && {
+            originalPrice: resolveOriginalPrice(
+              body.originalPrice,
+              body.price !== undefined
+                ? typeof body.price === 'number'
+                  ? body.price
+                  : parseInt(String(body.price), 10) || 0
+                : existing.price
+            ),
           }),
           ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null }),
           ...(body.videoUrl !== undefined && { videoUrl: body.videoUrl ? String(body.videoUrl).trim() : null }),
@@ -239,11 +273,31 @@ export async function PATCH(
           : parseInt(String(body.price), 10) || 0
         : existing.price
 
+    const originalPriceNum =
+      body.originalPrice !== undefined
+        ? resolveOriginalPrice(body.originalPrice, priceNum)
+        : existing.originalPrice !== null && existing.originalPrice > priceNum
+          ? existing.originalPrice
+          : null
+
+    const resolvedCategory =
+      body.categoryId !== undefined || body.category !== undefined
+        ? await resolveCourseCategory({
+            categoryId: body.categoryId,
+            categoryName: body.category,
+          })
+        : {
+            categoryId: existing.categoryId,
+            category: existing.category,
+          }
+
     const updateData = {
       ...(statusUpdate !== undefined && { status: statusUpdate }),
       title: body.title !== undefined ? String(body.title).trim() : existing.title,
-      category: body.category !== undefined ? String(body.category).trim() : existing.category,
+      category: resolvedCategory.category,
+      categoryId: resolvedCategory.categoryId,
       price: priceNum,
+      originalPrice: originalPriceNum,
       imageUrl: body.imageUrl !== undefined ? (body.imageUrl ? String(body.imageUrl).trim() : null) : existing.imageUrl,
       videoUrl: body.videoUrl !== undefined ? (body.videoUrl ? String(body.videoUrl).trim() : null) : existing.videoUrl,
       duration: body.duration !== undefined ? (body.duration ? String(body.duration).trim() : null) : existing.duration,

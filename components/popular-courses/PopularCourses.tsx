@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
+import { getCompareAtPrice } from '@/lib/course-pricing'
 
 // Fallback (used while loading, and by other demo components).
 export const courses = [
@@ -88,24 +89,40 @@ type ApiCourse = {
   title: string
   category: string
   price: number
+  originalPrice: number | null
   imageUrl: string | null
   instructor: string
+  instructorAvatar?: string | null
 }
 
 type CourseCard = {
   id: string | number
   title: string
   instructor: string
+  instructorAvatar?: string | null
   verified?: boolean
   recommended?: boolean
   rating?: number
   students?: number
   price: number
+  originalPrice?: number | null
   image: string
   category: string
 }
 
-export function PopularCourses () {
+type PopularCoursesProps = {
+  excludeCourseId?: string
+  preferCategory?: string
+  title?: string
+  subtitle?: string
+}
+
+export function PopularCourses ({
+  excludeCourseId,
+  preferCategory,
+  title,
+  subtitle,
+}: PopularCoursesProps = {}) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [realCourses, setRealCourses] = useState<CourseCard[] | null>(null)
 
@@ -134,12 +151,14 @@ export function PopularCourses () {
           id: c.id,
           title: c.title,
           instructor: c.instructor || 'مدرّس',
+          instructorAvatar: c.instructorAvatar ?? null,
           verified: true,
           recommended: false,
           // These are not available in current API; hide in UI when missing.
           rating: undefined,
           students: undefined,
           price: c.price,
+          originalPrice: c.originalPrice ?? null,
           image: getSafeCourseImageUrl(c.imageUrl),
           category: c.category,
         }))
@@ -155,19 +174,34 @@ export function PopularCourses () {
 
   const listToRender = useMemo(() => {
     if (realCourses === null) return courses
-    if (realCourses.length === 0) return []
-    return realCourses
-  }, [realCourses])
+    let list = realCourses
+    if (excludeCourseId) {
+      list = list.filter((c) => String(c.id) !== excludeCourseId)
+    }
+    if (preferCategory) {
+      // Stable reorder: same-category first, recency preserved within each group.
+      const inCategory = list.filter((c) => c.category === preferCategory)
+      const others = list.filter((c) => c.category !== preferCategory)
+      list = [...inCategory, ...others]
+    }
+    return list.slice(0, 10)
+  }, [realCourses, excludeCourseId, preferCategory])
 
   return (
     <section className='relative bg-white pt-12 pb-0 sm:pt-16 sm:pb-0 lg:pt-20 lg:pb-0'>
       <div className='relative z-10 px-4 py-12 sm:py-16 sm:px-6 lg:px-8 lg:max-w-7xl lg:mx-auto'>
         <div className='max-w-2xl mx-auto text-center'>
           <h2 className='text-2xl font-bold text-gray-900 sm:text-3xl lg:text-4xl'>
-            أشهر <GradientText text='الدورات التعليمية' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+            {title ? (
+              title
+            ) : (
+              <>
+                أشهر <GradientText text='الدورات التعليمية' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+              </>
+            )}
           </h2>
           <p className='mt-3 text-sm leading-7 text-gray-600 sm:text-base'>
-            اكتشف أفضل الدورات التي يختارها آلاف المتعلمين لتحقيق أهدافهم المهنية
+            {subtitle ?? 'اكتشف أفضل الدورات التي يختارها آلاف المتعلمين لتحقيق أهدافهم المهنية'}
           </p>
         </div>
 
@@ -201,7 +235,12 @@ export function PopularCourses () {
                 <div className="w-full py-10 text-center text-sm text-gray-600">
                   لا توجد دورات منشورة حالياً.
                 </div>
-              ) : listToRender.map((course) => (
+              ) : listToRender.map((course) => {
+                const compareAtPrice = getCompareAtPrice(
+                  course.price,
+                  'originalPrice' in course ? course.originalPrice : null
+                )
+                return (
                 <div
                   key={course.id}
                   className='relative snap-start scroll-mr-6 shrink-0'
@@ -210,14 +249,14 @@ export function PopularCourses () {
                     <Link
                       href={`/courses/${course.id}`}
                       title=''
-                      className='flex shrink-0 aspect-w-4 aspect-h-3 relative'
+                      className='relative block w-full aspect-[16/9] shrink-0 overflow-hidden'
                     >
                       <Image
-                        className='object-cover w-full h-full transition-all duration-200 transform group-hover:scale-110'
+                        className='object-cover transition-all duration-200 transform group-hover:scale-110'
                         src={course.image}
                         alt={course.title}
-                        width={320}
-                        height={240}
+                        fill
+                        sizes='(max-width: 768px) 288px, 320px'
                       />
                       <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent' />
                       
@@ -239,7 +278,7 @@ export function PopularCourses () {
                       
                       {/* Price and Promotion on Image Left */}
                       <div className='absolute bottom-3 left-3 flex flex-col gap-1.5'>
-                        {course.price > 2000 && (
+                        {compareAtPrice !== null && (
                           <span 
                             className='inline-flex items-center justify-center w-fit text-sm font-semibold whitespace-nowrap bg-black/60 backdrop-blur-sm px-2.5 py-1.5 rounded border border-white/30'
                             style={{
@@ -251,7 +290,7 @@ export function PopularCourses () {
                               textUnderlineOffset: '0.3em'
                             }}
                           >
-                            {Math.round(course.price * 1.3).toLocaleString()} د.ج
+                            {compareAtPrice.toLocaleString()} د.ج
                           </span>
                         )}
                         <span 
@@ -273,7 +312,7 @@ export function PopularCourses () {
                       )}
                     </Link>
 
-                    <div className='flex-1 px-4 py-5 sm:p-6 flex flex-col'>
+                    <div className='flex-1 px-4 py-3 flex flex-col'>
                       <Link href={`/courses/${course.id}`} title=''>
                         <div className='flex items-center gap-2 mb-2'>
                           <p className='text-lg font-bold text-gray-900 text-right'>{course.title}</p>
@@ -282,6 +321,14 @@ export function PopularCourses () {
                           </span>
                         </div>
                         <div className='flex items-center gap-2'>
+                          {('instructorAvatar' in course && course.instructorAvatar) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={course.instructorAvatar}
+                              alt={course.instructor}
+                              className='w-6 h-6 rounded-full object-cover border border-gray-200 flex-shrink-0'
+                            />
+                          ) : null}
                           {course.verified && (
                             <svg
                               className='w-4 h-4 text-blue-500 flex-shrink-0'
@@ -302,7 +349,7 @@ export function PopularCourses () {
                       </Link>
                     </div>
 
-                    <div className='px-4 py-5 mt-auto border-t border-gray-100 sm:px-6'>
+                    <div className='px-4 py-3 mt-auto border-t border-gray-100'>
                       <Link
                         href={`/courses/${course.id}`}
                         className='inline-flex items-center justify-center w-full px-4 py-2 text-xs font-black text-amber-950 rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 shadow-[0_10px_25px_rgba(217,119,6,0.45)] hover:brightness-105 transition-all'
@@ -312,7 +359,8 @@ export function PopularCourses () {
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className='flex items-center justify-end mt-2 space-x-reverse space-x-5'>

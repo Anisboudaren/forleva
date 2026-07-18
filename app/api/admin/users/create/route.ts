@@ -17,6 +17,14 @@ export async function POST(req: Request) {
     const email = (body.email as string)?.trim() || undefined
     const password = body.password as string
     const role: UserRole = body.role === 'teacher' ? 'TEACHER' : 'STUDENT'
+    const avatarUrl =
+      role === 'TEACHER' && typeof body.avatarUrl === 'string'
+        ? body.avatarUrl.trim() || null
+        : null
+    const avatarKey =
+      role === 'TEACHER' && typeof body.avatarKey === 'string'
+        ? body.avatarKey.trim() || null
+        : null
 
     if (!fullName || !phone || !password) {
       return NextResponse.json(
@@ -54,6 +62,8 @@ export async function POST(req: Request) {
         passwordHash,
         role,
         status,
+        avatarUrl,
+        avatarKey,
       },
     })
     return NextResponse.json({ success: true })

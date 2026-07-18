@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/table'
 import { Star, Search, Loader2, Check, X } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
+import { TablePagination } from '@/components/ui/table-pagination'
+
+const PAGE_SIZE = 10
 
 type ReviewRow = {
   id: string
@@ -53,6 +56,7 @@ export default function AdminReviewsPage() {
   const [decisionId, setDecisionId] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [ratingFilter, setRatingFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
 
   const fetchReviews = () => {
     fetch('/api/admin/reviews', { credentials: 'include' })
@@ -132,6 +136,13 @@ export default function AdminReviewsPage() {
     }
     return list
   }, [reviews, searchInput, ratingFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchInput, ratingFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredReviews.length / PAGE_SIZE))
+  const paginatedReviews = filteredReviews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="flex flex-1 flex-col gap-6" dir="rtl">
@@ -292,7 +303,7 @@ export default function AdminReviewsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReviews.map((rev) => (
+              {paginatedReviews.map((rev) => (
                 <TableRow key={rev.id}>
                   <TableCell className="font-medium text-gray-900">
                     {rev.courseName}
@@ -330,6 +341,15 @@ export default function AdminReviewsPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+        {!loading && filteredReviews.length > 0 && (
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={filteredReviews.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         )}
       </DashboardContentCard>
     </div>

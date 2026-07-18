@@ -10,14 +10,18 @@ import { VimeoVideoPlayer } from '@/components/vimeo-video-player'
 import { isVimeoUrl } from '@/lib/vimeo'
 import {
   Play, FileText, ExternalLink, FileCheck, Headphones,
-  CheckCircle2, Award, BookOpen, CheckSquare, MessageSquare,
+  CheckCircle2, Award, BookOpen, CheckSquare,
   HelpCircle, Loader2, Star
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import {
   EMPTY_SALES_PAGE_DATA,
+  DEFAULT_INCLUDED_BENEFITS,
   type SalesPageData,
 } from '@/lib/course-sales'
+import { getRealPromoSavings } from '@/lib/course-pricing'
+import { getSafeCourseImageUrl } from '@/lib/safe-course-image'
+import { BeforeAfterSlider } from '@/components/courses/BeforeAfterSlider'
 
 const lessonTypes: Record<string, { icon: typeof Play; label: string; color: string }> = {
   VIDEO: { icon: Play, label: 'فيديو', color: 'text-red-500' },
@@ -63,6 +67,7 @@ type CourseData = {
   title: string
   category: string
   price: number
+  originalPrice?: number | null
   imageUrl: string | null
   videoUrl?: string | null
   duration: string | null
@@ -71,7 +76,12 @@ type CourseData = {
   description: string | null
   learningOutcomes: string[]
   salesPageData?: SalesPageData | null
-  teacher: { id: string; fullName: string } | null
+  teacher: {
+    id: string
+    fullName: string
+    bio?: string | null
+    avatarUrl?: string | null
+  } | null
   sections: CourseSection[]
 }
 
@@ -85,14 +95,6 @@ type CourseReview = {
   comment: string | null
   createdAt: string
   userName: string
-}
-
-type CourseQuestion = {
-  id: string
-  content: string
-  createdAt: string
-  userName: string
-  replies: Array<{ id: string; content: string; createdAt: string; userName: string }>
 }
 
 function formatPrice(price: number) {
@@ -127,6 +129,7 @@ function getFallbackSalesData(course: CourseData): SalesPageData {
       { title: 'ملخصات جاهزة', description: 'ملخصات مركزة لكل جزء لتثبيت التعلم بسرعة.', type: 'free' },
       { title: 'تحديثات مستقبلية', description: 'وصول لأي تحسينات أو إضافات جديدة على نفس الدورة.', type: 'free' },
     ],
+    includedBenefits: [...DEFAULT_INCLUDED_BENEFITS],
   }
 }
 
@@ -150,12 +153,6 @@ export default function CoursePage() {
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewError, setReviewError] = useState<string | null>(null)
-  const [questions, setQuestions] = useState<CourseQuestion[]>([])
-  const [questionsLoading, setQuestionsLoading] = useState(false)
-  const [questionText, setQuestionText] = useState("")
-  const [questionSubmitting, setQuestionSubmitting] = useState(false)
-  const [replyTextByQuestion, setReplyTextByQuestion] = useState<Record<string, string>>({})
-  const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) {
@@ -306,62 +303,6 @@ export default function CoursePage() {
       .finally(() => setReviewSubmitting(false))
   }
 
-  const fetchQuestions = () => {
-    if (!id) return
-    setQuestionsLoading(true)
-    fetch(`/api/courses/${encodeURIComponent(id)}/questions`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: CourseQuestion[]) => setQuestions(Array.isArray(data) ? data : []))
-      .catch(() => setQuestions([]))
-      .finally(() => setQuestionsLoading(false))
-  }
-
-  useEffect(() => {
-    fetchQuestions()
-  }, [id])
-
-  const submitQuestion = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!id || questionSubmitting || questionText.trim().length < 2) return
-    setQuestionSubmitting(true)
-    fetch(`/api/courses/${encodeURIComponent(id)}/questions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ content: questionText.trim() }),
-    })
-      .then((res) => {
-        if (!res.ok) return res.json().then((d) => { throw new Error(d?.error || 'فشل الإرسال') })
-      })
-      .then(() => {
-        setQuestionText('')
-        fetchQuestions()
-      })
-      .catch(() => {})
-      .finally(() => setQuestionSubmitting(false))
-  }
-
-  const submitReply = (questionId: string) => {
-    const content = (replyTextByQuestion[questionId] ?? '').trim()
-    if (!id || !content || replySubmittingId) return
-    setReplySubmittingId(questionId)
-    fetch(`/api/courses/${encodeURIComponent(id)}/questions/replies`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ questionId, content }),
-    })
-      .then((res) => {
-        if (!res.ok) return res.json().then((d) => { throw new Error(d?.error || 'فشل الإرسال') })
-      })
-      .then(() => {
-        setReplyTextByQuestion((prev) => ({ ...prev, [questionId]: '' }))
-        fetchQuestions()
-      })
-      .catch(() => {})
-      .finally(() => setReplySubmittingId(null))
-  }
-
   const introVimeoUrl = useMemo(() => {
     const main = course?.videoUrl?.trim()
     if (main && isVimeoUrl(main)) return main
@@ -427,67 +368,82 @@ export default function CoursePage() {
   const hookTitle = salesPageData.hook.title || course.title
   const hookDescription = salesPageData.hook.description || course.description
   const primaryCtaText = salesPageData.cta.primaryText || 'اشترك الآن'
+  const promo = getRealPromoSavings(course.price, course.originalPrice)
+
+  const cardClass = 'rounded-xl border border-gray-200 bg-white p-6'
+  const headingClass = 'text-lg sm:text-xl font-semibold text-gray-900 mb-4'
+  const reveal = {
+    initial: { opacity: 0, y: 12 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: '-60px' },
+    transition: { duration: 0.4, ease: 'easeOut' },
+  } as const
 
   return (
     <main className='bg-white pt-20 sm:pt-24 md:pt-28 lg:pt-24' dir='rtl'>
-      <section className='relative bg-gradient-to-b from-amber-50/30 via-white to-white pb-8'>
-        <div
-          className='absolute inset-0 opacity-[0.02]'
-          style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, #d97706 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
-          }}
-        />
-        <div className='relative px-4 sm:px-6 lg:px-8 py-8 lg:py-12 max-w-7xl mx-auto'>
-          <nav className='text-sm text-gray-600 mb-4 flex items-center gap-2'>
-            <Link href='/' className='hover:text-amber-600 transition-colors'>الرئيسية</Link>
-            <span>/</span>
-            <Link href='/courses/category/all' className='hover:text-amber-600 transition-colors'>الدورات</Link>
-            <span>/</span>
-            <span className='text-gray-900 font-semibold'>{course.title}</span>
-          </nav>
+      <div className='px-4 sm:px-6 lg:px-8 py-8 lg:py-10 max-w-7xl mx-auto'>
+        <nav className='text-sm text-gray-500 mb-6 flex items-center gap-2'>
+          <Link href='/' className='hover:text-gray-900 transition-colors'>الرئيسية</Link>
+          <span className='text-gray-300'>/</span>
+          <Link href='/courses/category/all' className='hover:text-gray-900 transition-colors'>الدورات</Link>
+          <span className='text-gray-300'>/</span>
+          <span className='text-gray-900 font-medium'>{course.title}</span>
+        </nav>
 
-          <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
-            <div className='lg:col-span-8'>
-              <h1 className='text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4'>
-                <GradientText text={hookTitle} gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
-              </h1>
-              {hookDescription && (
-                <p className='text-base sm:text-lg text-gray-700 mb-5 whitespace-pre-wrap'>
-                  {hookDescription}
-                </p>
-              )}
-              <div className='flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-6'>
-                {course.level && <span>{course.level}</span>}
-                {course.duration && (
-                  <>
-                    {course.level && <span>•</span>}
-                    <span>{course.duration}</span>
-                  </>
-                )}
-                {course.language && (
-                  <>
-                    {(course.level || course.duration) && <span>•</span>}
-                    <span>{course.language}</span>
-                  </>
-                )}
-              </div>
+        <motion.header {...reveal} className='mb-8'>
+          <h1 className='text-3xl sm:text-4xl lg:text-[2.75rem] font-bold tracking-tight leading-tight mb-4'>
+            <GradientText text={hookTitle} gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+          </h1>
+          {hookDescription && (
+            <p className='max-w-3xl text-base sm:text-lg text-gray-600 leading-8 whitespace-pre-wrap'>
+              {hookDescription}
+            </p>
+          )}
+          <div className='mt-5 flex flex-wrap items-center gap-2'>
+            {course.level && (
+              <span className='inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600'>{course.level}</span>
+            )}
+            {course.duration && (
+              <span className='inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600'>{course.duration}</span>
+            )}
+            {course.language && (
+              <span className='inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600'>{course.language}</span>
+            )}
+          </div>
+        </motion.header>
 
-              {introVimeoUrl && (
-                <div className='mb-6 rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg'>
-                  <VimeoVideoPlayer
-                    videoUrl={introVimeoUrl!}
-                    title={`مقدمة - ${course.title}`}
-                    className='w-full'
-                  />
-                </div>
-              )}
-            </div>
-
-            <aside className='lg:col-span-4'>
-              <div className='sticky top-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-lg'>
-                <div className='flex items-center justify-between mb-4'>
-                  <span className='text-3xl font-black text-gray-900'>{formatPrice(course.price)}</span>
+        <div className='grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10'>
+          <aside className='lg:col-start-9 lg:col-span-4 lg:row-start-1'>
+            <div className='lg:sticky lg:top-24'>
+              <div className='rounded-2xl border border-gray-200 bg-white p-6 shadow-sm'>
+                <div className='mb-5'>
+                  {promo ? (
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='min-w-0'>
+                        <p className='text-base text-gray-400 tabular-nums line-through decoration-gray-300'>
+                          {formatPrice(promo.compareAtPrice)}
+                        </p>
+                        <p className='mt-1 text-4xl font-bold text-gray-900 tabular-nums leading-none'>
+                          {formatPrice(course.price)}
+                        </p>
+                      </div>
+                      <span
+                        className='inline-flex items-center rounded-full bg-amber-500 px-3 py-1.5 text-sm font-bold text-white'
+                        aria-label={`وفّر ${promo.discountPercent}%`}
+                      >
+                        وفّر {promo.discountPercent}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className='flex items-center justify-between gap-3'>
+                      <p className='text-4xl font-bold text-gray-900 tabular-nums leading-none'>
+                        {formatPrice(course.price)}
+                      </p>
+                      <span className='inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700'>
+                        عرض محدود
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {orderStatus === 'CONFIRMED' ? (
                   <>
@@ -496,24 +452,24 @@ export default function CoursePage() {
                       onClick={() => {
                         window.location.href = `/dashboard/student/learning/${course.id}`
                       }}
-                      className='w-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600 text-white py-3 font-bold shadow-[0_10px_25px_rgba(16,185,129,0.45)] hover:brightness-105 transition-all mb-4 flex items-center justify-center gap-2'
+                      className='w-full rounded-lg bg-emerald-600 text-white py-3 font-semibold shadow-sm hover:bg-emerald-700 transition-colors mb-4 flex items-center justify-center gap-2'
                     >
                       <Play className="w-5 h-5" />
                       <span>تابع تعلمك</span>
                     </button>
-                    <div className="w-full rounded-2xl border border-emerald-100 bg-emerald-50/70 text-emerald-800 py-3 px-4 text-sm">
+                    <div className="w-full rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-800 py-3 px-4 text-sm leading-6">
                       لديك وصول كامل لهذه الدورة. يمكنك العودة إلى الاستوديو في أي وقت من لوحة تحكم الطالب.
                     </div>
                   </>
                 ) : isEnrolled || orderStatus === 'PENDING' ? (
-                  <div className="w-full rounded-2xl border-2 border-green-200/80 bg-gradient-to-br from-green-50 to-emerald-50/80 text-green-800 py-4 px-5 mb-4 flex flex-col items-center justify-center gap-1.5 shadow-[0_2px_12px_rgba(34,197,94,0.12)]">
+                  <div className="w-full rounded-lg border border-green-200 bg-green-50 text-green-800 py-4 px-5 mb-4 flex flex-col items-center justify-center gap-1.5 text-center">
                     <span className="flex items-center justify-center gap-2">
                       <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                      <span className="font-bold text-base">
+                      <span className="font-semibold text-base">
                         {orderLoading ? 'جارٍ التحقق من حالة طلبك...' : 'طلبك قيد المعالجة'}
                       </span>
                     </span>
-                    <span className="text-sm text-green-700/90 font-medium">
+                    <span className="text-sm text-green-700 font-medium">
                       سنتواصل معك خلال 24 ساعة عبر واتساب أو مكالمة لتأكيد الاشتراك.
                     </span>
                   </div>
@@ -522,7 +478,7 @@ export default function CoursePage() {
                     <button
                       type="button"
                       onClick={() => setEnrollOpen(true)}
-                      className='w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white py-3 font-bold shadow-[0_10px_25px_rgba(217,119,6,0.45)] hover:brightness-105 transition-all mb-4'
+                      className='w-full rounded-lg bg-amber-500 text-white py-3 font-semibold shadow-sm hover:bg-amber-600 transition-colors mb-4'
                     >
                       {primaryCtaText}
                     </button>
@@ -536,7 +492,7 @@ export default function CoursePage() {
                       }}
                     />
                     {salesPageData.cta.secondaryText && (
-                      <p className='text-sm text-gray-700 text-center mb-2'>
+                      <p className='text-sm text-gray-600 text-center mb-2'>
                         {salesPageData.cta.secondaryText}
                       </p>
                     )}
@@ -547,49 +503,50 @@ export default function CoursePage() {
                     )}
                   </>
                 )}
-                <ul className='space-y-3 text-sm text-gray-700 border-t border-gray-200 pt-4'>
-                  <li className='flex items-center gap-2'>
-                    <CheckCircle2 className='w-5 h-5 text-green-500 flex-shrink-0' />
-                    <span>وصول لمدة 12 شهر</span>
-                  </li>
-                  <li className='flex items-center gap-2'>
-                    <CheckCircle2 className='w-5 h-5 text-green-500 flex-shrink-0' />
-                    <span>شهادة مشاركة</span>
-                  </li>
-                  <li className='flex items-center gap-2'>
-                    <CheckCircle2 className='w-5 h-5 text-green-500 flex-shrink-0' />
-                    <span>تحديثات مجانية للمحتوى</span>
-                  </li>
+                <ul className='space-y-3 text-sm text-gray-700 border-t border-gray-100 pt-4'>
+                  {(salesPageData.includedBenefits?.length
+                    ? salesPageData.includedBenefits
+                    : DEFAULT_INCLUDED_BENEFITS
+                  ).map((benefit) => (
+                    <li key={benefit} className='flex items-center gap-2'>
+                      <CheckCircle2 className='w-5 h-5 text-emerald-500 flex-shrink-0' />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
-            </aside>
-          </div>
-        </div>
-      </section>
+            </div>
+          </aside>
 
-      <section className='py-10 sm:py-14'>
-        <div className='px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto'>
-          <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
-            <div className='lg:col-span-8'>
+          <div className='lg:col-start-1 lg:col-span-8 lg:row-start-1 space-y-6'>
+            {introVimeoUrl && (
+              <div className='rounded-xl overflow-hidden border border-gray-200 shadow-sm'>
+                <VimeoVideoPlayer
+                  videoUrl={introVimeoUrl!}
+                  title={`مقدمة - ${course.title}`}
+                  className='w-full'
+                />
+              </div>
+            )}
               {course.description && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                  className='rounded-xl border border-gray-200 bg-white p-6 shadow-sm'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>نبذة عن الدورة</h2>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>نبذة عن الدورة</h2>
                   <p className='text-sm leading-7 text-gray-700 whitespace-pre-wrap'>{course.description}</p>
                 </motion.div>
               )}
 
               {salesPageData.formationInfo.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.05 }}
-                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                  className='rounded-xl border border-gray-200 bg-white p-6 shadow-sm'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>معلومات الدورة</h2>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>معلومات الدورة</h2>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                     {salesPageData.formationInfo.map((item, idx) => (
                       <div key={`${item.title}-${idx}`} className='rounded-xl border border-gray-100 bg-gray-50/60 p-4'>
@@ -603,12 +560,12 @@ export default function CoursePage() {
 
               {course.learningOutcomes?.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                  className='rounded-xl border border-gray-200 bg-white p-6 shadow-sm'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>ستتعلّم</h2>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>ستتعلّم</h2>
                   <ul className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                     {course.learningOutcomes.map((item, i) => (
                       <li key={i} className='flex items-start gap-2 text-sm text-gray-700'>
@@ -622,23 +579,50 @@ export default function CoursePage() {
 
               {salesPageData.beforeAfter.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 }}
-                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                  className='rounded-xl border border-gray-200 bg-white p-6 shadow-sm'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>النتيجة قبل وبعد</h2>
-                  <div className='space-y-3'>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>النتيجة قبل وبعد</h2>
+                  <div className='space-y-6'>
                     {salesPageData.beforeAfter.map((item, idx) => (
-                      <div key={`${item.before}-${idx}`} className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                        <div className='rounded-xl bg-slate-50 border border-slate-200 p-4'>
-                          <p className='text-xs text-slate-600 mb-1 font-medium'>قبل</p>
-                          <p className='text-sm text-gray-800 leading-6'>{item.before}</p>
-                        </div>
-                        <div className='rounded-xl bg-emerald-50/60 border border-emerald-200 p-4'>
-                          <p className='text-xs text-emerald-700 mb-1 font-medium'>بعد</p>
-                          <p className='text-sm text-gray-800 leading-6'>{item.after}</p>
-                        </div>
+                      <div key={`ba-${idx}`} className='space-y-3'>
+                        {item.beforeImageUrl && item.afterImageUrl ? (
+                          <BeforeAfterSlider
+                            beforeUrl={item.beforeImageUrl}
+                            afterUrl={item.afterImageUrl}
+                          />
+                        ) : (
+                          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                            <div className='rounded-xl bg-gray-50 border border-gray-200 p-4'>
+                              <p className='text-xs text-gray-500 mb-1 font-medium'>قبل</p>
+                              <p className='text-sm text-gray-700 leading-6'>{item.before}</p>
+                            </div>
+                            <div className='rounded-xl bg-emerald-50/60 border border-emerald-100 p-4'>
+                              <p className='text-xs text-emerald-700 mb-1 font-medium'>بعد</p>
+                              <p className='text-sm text-gray-700 leading-6'>{item.after}</p>
+                            </div>
+                          </div>
+                        )}
+                        {(item.before || item.after) &&
+                          item.beforeImageUrl &&
+                          item.afterImageUrl && (
+                            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                              {item.before && (
+                                <p className='text-sm text-gray-700 leading-6'>
+                                  <span className='font-medium text-slate-600'>قبل: </span>
+                                  {item.before}
+                                </p>
+                              )}
+                              {item.after && (
+                                <p className='text-sm text-gray-700 leading-6'>
+                                  <span className='font-medium text-emerald-700'>بعد: </span>
+                                  {item.after}
+                                </p>
+                              )}
+                            </div>
+                          )}
                       </div>
                     ))}
                   </div>
@@ -647,12 +631,12 @@ export default function CoursePage() {
 
               {salesPageData.bonuses.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.18 }}
-                  className='rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm bg-white'
+                  className='rounded-xl border border-gray-200 bg-white p-6 shadow-sm'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>البونصات</h2>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>البونصات</h2>
                   <div className='space-y-3'>
                     {salesPageData.bonuses.map((bonus, idx) => (
                       <div key={`${bonus.title}-${idx}`} className='rounded-xl border border-gray-200 bg-white p-4'>
@@ -673,12 +657,12 @@ export default function CoursePage() {
 
               {course.sections?.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                   className='rounded-2xl border border-gray-200 p-6 shadow-sm bg-white'
                 >
-                  <h2 className='text-xl font-bold text-gray-900 mb-4'>المنهج</h2>
+                  <h2 className='text-lg sm:text-xl font-semibold text-gray-900 mb-4'>المنهج</h2>
                   <div className='space-y-4'>
                     {course.sections.map((section) => {
                       const isExpanded = expandedSections[section.title] ?? false
@@ -686,9 +670,9 @@ export default function CoursePage() {
                         <div key={section.id} className='rounded-xl border border-gray-200 overflow-hidden'>
                           <button
                             onClick={() => toggleSection(section.title)}
-                            className='w-full px-5 py-4 bg-gradient-to-r from-gray-50 to-white text-right flex items-center justify-between hover:from-gray-100 transition-all'
+                            className='w-full px-5 py-4 bg-gray-50 text-right flex items-center justify-between hover:bg-gray-100 transition-colors'
                           >
-                            <span className='text-base font-bold text-gray-900'>{section.title}</span>
+                            <span className='text-base font-semibold text-gray-900'>{section.title}</span>
                             <span className='text-sm text-gray-600'>
                               {section.items.length} درس
                               <span className={`inline-block mr-2 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
@@ -703,7 +687,7 @@ export default function CoursePage() {
                                 return (
                                   <li
                                     key={item.id}
-                                    className='px-5 py-3 flex items-center justify-between hover:bg-amber-50/50 transition-colors group'
+                                    className='px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors group'
                                   >
                                     <div className='flex items-center gap-3 flex-1'>
                                       <TypeIcon className={`w-5 h-5 ${typeInfo.color} flex-shrink-0`} />
@@ -725,107 +709,41 @@ export default function CoursePage() {
                 </motion.div>
               )}
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className='rounded-2xl border border-gray-200 p-6 mt-6 shadow-sm bg-white'
-              >
-                <h2 className='text-xl font-bold text-gray-900 mb-4 flex items-center gap-2'>
-                  <MessageSquare className='w-6 h-6 text-amber-600' />
-                  الأسئلة والأجوبة
-                </h2>
-                <p className='text-sm text-gray-600 mb-4'>اسأل عن أي نقطة في الدورة واحصل على ردود من المدرّس أو الطلاب.</p>
-                <form onSubmit={submitQuestion} className='space-y-2 mb-4'>
-                  <textarea
-                    value={questionText}
-                    onChange={(e) => setQuestionText(e.target.value)}
-                    placeholder='اكتب سؤالك...'
-                    rows={3}
-                    className='w-full px-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500'
-                  />
-                  <button
-                    type='submit'
-                    disabled={questionSubmitting || questionText.trim().length < 2}
-                    className='w-full py-2.5 text-sm font-semibold text-amber-700 border-2 border-amber-300 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50'
-                  >
-                    {questionSubmitting ? 'جارٍ الإرسال...' : 'طرح سؤال جديد'}
-                  </button>
-                </form>
-                <div className='space-y-3'>
-                  {questionsLoading ? (
-                    <div className='text-sm text-gray-500'>جارٍ تحميل الأسئلة...</div>
-                  ) : questions.length === 0 ? (
-                    <div className='text-sm text-gray-500'>لا توجد أسئلة بعد.</div>
+              <motion.div {...reveal} className={cardClass}>
+                <h2 className={headingClass}>عن المدرّس</h2>
+                <div className='flex items-center gap-4 mb-4'>
+                  {course.teacher?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={course.teacher.avatarUrl}
+                      alt={instructorName}
+                      className='w-14 h-14 rounded-full object-cover border border-gray-200'
+                    />
                   ) : (
-                    questions.map((q) => (
-                      <div key={q.id} className='border border-gray-200 rounded-lg p-3'>
-                        <p className='text-sm font-semibold text-gray-900'>{q.userName}</p>
-                        <p className='text-sm text-gray-700 mt-1'>{q.content}</p>
-                        <div className='mt-3 space-y-2'>
-                          {q.replies.map((r) => (
-                            <div key={r.id} className='bg-gray-50 rounded p-2 text-sm'>
-                              <span className='font-medium text-gray-800'>{r.userName}: </span>
-                              <span className='text-gray-700'>{r.content}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className='mt-2 flex gap-2'>
-                          <input
-                            value={replyTextByQuestion[q.id] ?? ''}
-                            onChange={(e) =>
-                              setReplyTextByQuestion((prev) => ({ ...prev, [q.id]: e.target.value }))
-                            }
-                            placeholder='اكتب ردك...'
-                            className='flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg'
-                          />
-                          <button
-                            type='button'
-                            onClick={() => submitReply(q.id)}
-                            disabled={replySubmittingId === q.id || !(replyTextByQuestion[q.id] ?? '').trim()}
-                            className='px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg disabled:opacity-50'
-                          >
-                            رد
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                    <div className='w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold text-gray-700'>
+                      {instructorName[0] ?? 'م'}
+                    </div>
                   )}
-                </div>
-              </motion.div>
-            </div>
-
-            <aside className='lg:col-span-4'>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className='rounded-2xl border border-gray-200 p-6 shadow-sm bg-white'
-              >
-                <h3 className='text-lg font-bold text-gray-900 mb-4'>عن المدرّس</h3>
-                <div className='flex items-center gap-3 mb-4'>
-                  <div className='w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-2xl font-bold text-amber-700 border-2 border-amber-200'>
-                    {instructorName[0] ?? 'م'}
-                  </div>
                   <div>
-                    <p className='text-base font-bold text-gray-900'>{instructorName}</p>
-                    {course.language && <p className='text-xs text-gray-600 mt-1'>{course.language}</p>}
+                    <p className='text-base font-semibold text-gray-900'>{instructorName}</p>
+                    {course.language && <p className='text-xs text-gray-500 mt-0.5'>{course.language}</p>}
                   </div>
                 </div>
-                <p className='text-sm text-gray-700 leading-7'>
-                  مدرّس هذه الدورة في {course.category}. انضم للدورة للوصول إلى كل المحتوى والدعم.
+                <p className='text-[15px] text-gray-600 leading-7 whitespace-pre-wrap'>
+                  {course.teacher?.bio?.trim()
+                    ? course.teacher.bio
+                    : `مدرّس هذه الدورة في ${course.category}. انضم للدورة للوصول إلى كل المحتوى والدعم.`}
                 </p>
               </motion.div>
-            </aside>
+            </div>
           </div>
         </div>
-      </section>
 
-      <section className='py-10 sm:py-14 bg-gradient-to-b from-gray-50 to-white'>
+      <section className='py-12 sm:py-16 border-t border-gray-100'>
         <div className='px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto'>
-          <div className='text-center mb-10'>
-            <h2 className='text-3xl sm:text-4xl font-bold text-gray-900 mb-3'>
-              آراء <GradientText text='المتعلمين' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+          <div className='mb-8'>
+            <h2 className='text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2'>
+              آراء المتعلمين
             </h2>
             <p className='text-gray-600'>مقتطفات من تعليقات حقيقية حول محتوى الدورة وجودته</p>
           </div>
@@ -833,24 +751,38 @@ export default function CoursePage() {
           {salesPageData.socialProof.length > 0 && (
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-8'>
               {salesPageData.socialProof.map((item, idx) => (
-                <div key={`${item.name}-${idx}`} className='rounded-2xl border border-amber-100 bg-amber-50/40 p-5'>
-                  <div className='flex items-start justify-between gap-3 mb-2'>
-                    <div>
-                      <p className='font-semibold text-gray-900'>{item.name}</p>
-                      <p className='text-xs text-gray-600'>{item.role}</p>
-                    </div>
-                    {item.rating && (
-                      <div className='flex gap-0.5' dir='ltr'>
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${i <= item.rating! ? 'fill-amber-500 text-amber-500' : 'fill-gray-200 text-gray-200'}`}
-                          />
-                        ))}
+                <div key={`sp-${idx}`} className='rounded-xl border border-gray-200 bg-white p-5 shadow-sm'>
+                  {(item.name || item.role || item.rating) && (
+                    <div className='flex items-start justify-between gap-3 mb-2'>
+                      <div>
+                        {item.name && <p className='font-semibold text-gray-900'>{item.name}</p>}
+                        {item.role && <p className='text-xs text-gray-600'>{item.role}</p>}
                       </div>
-                    )}
-                  </div>
-                  <p className='text-sm text-gray-700 leading-relaxed'>{item.quote}</p>
+                      {item.rating && (
+                        <div className='flex gap-0.5' dir='ltr'>
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${i <= item.rating! ? 'fill-amber-500 text-amber-500' : 'fill-gray-200 text-gray-200'}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {item.quote && (
+                    <p className='text-sm text-gray-700 leading-relaxed'>{item.quote}</p>
+                  )}
+                  {item.imageUrl && (
+                    <div className={item.name || item.role || item.quote || item.rating ? 'mt-3' : ''}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getSafeCourseImageUrl(item.imageUrl)}
+                        alt={item.name || 'شهادة'}
+                        className='w-full rounded-lg border border-gray-200 object-contain'
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -860,12 +792,12 @@ export default function CoursePage() {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className='rounded-2xl border border-amber-200 bg-amber-50/50 p-6 mb-8 text-center'
+              className='rounded-xl border border-gray-200 bg-gray-50 p-6 mb-8 text-center'
             >
               <p className='text-gray-700 mb-4'>سجّل الدخول لترك تقييم لهذه الدورة</p>
               <Link
                 href={`/login?redirect=${encodeURIComponent(`/courses/${id}`)}`}
-                className='inline-flex items-center justify-center rounded-full bg-amber-500 text-white px-6 py-2.5 font-semibold hover:bg-amber-600 transition-colors'
+                className='inline-flex items-center justify-center rounded-lg bg-amber-500 text-white px-6 py-2.5 font-semibold shadow-sm hover:bg-amber-600 transition-colors'
               >
                 تسجيل الدخول
               </Link>
@@ -877,9 +809,9 @@ export default function CoursePage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               onSubmit={submitReview}
-              className='rounded-2xl border border-gray-200 p-6 mb-8 bg-white shadow-sm'
+              className='rounded-xl border border-gray-200 p-6 mb-8 bg-white shadow-sm'
             >
-              <h3 className='text-lg font-bold text-gray-900 mb-4'>اكتب تقييمك</h3>
+              <h3 className='text-lg font-semibold text-gray-900 mb-4'>اكتب تقييمك</h3>
               <div className='flex gap-1 mb-4' dir='ltr'>
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
@@ -908,7 +840,7 @@ export default function CoursePage() {
               <button
                 type='submit'
                 disabled={reviewRating < 1 || reviewSubmitting}
-                className='rounded-full bg-amber-500 text-white px-6 py-2.5 font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                className='rounded-lg bg-amber-500 text-white px-6 py-2.5 font-semibold shadow-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
               >
                 {reviewSubmitting ? 'جاري الإرسال...' : 'إرسال التقييم'}
               </button>
@@ -916,7 +848,7 @@ export default function CoursePage() {
           )}
 
           {session && hasReviewed && reviewChecked && (
-            <div className='rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 mb-8 text-center'>
+            <div className='rounded-xl border border-emerald-100 bg-emerald-50 p-4 mb-8 text-center'>
               <p className='text-emerald-800 font-medium'>لقد قمت بتقييم هذه الدورة مسبقاً</p>
             </div>
           )}
@@ -934,7 +866,7 @@ export default function CoursePage() {
                   key={r.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className='rounded-2xl border border-gray-200 p-5 bg-white shadow-sm'
+                  className='rounded-xl border border-gray-200 p-5 bg-white shadow-sm'
                 >
                   <div className='flex items-start justify-between gap-4 mb-2'>
                     <span className='font-semibold text-gray-900'>{r.userName}</span>
@@ -958,7 +890,11 @@ export default function CoursePage() {
         </div>
       </section>
 
-      <PopularCourses />
+      <PopularCourses
+        excludeCourseId={course.id}
+        preferCategory={course.category}
+        title='دورات مقترحة'
+      />
     </main>
   )
 }

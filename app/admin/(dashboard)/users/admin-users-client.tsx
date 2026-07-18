@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
-import { Users, UserPlus, Search, Mail, MoreHorizontal, Plus, Trash2, Eye, Pencil } from "lucide-react"
+import { Users, UserPlus, Search, Mail, MoreHorizontal, Plus, Trash2, Eye, Pencil, Camera, Loader2, X } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
 import {
   Table,
@@ -39,10 +39,97 @@ import {
   FieldDescription,
 } from "@/components/ui/field"
 import { cn } from "@/lib/utils"
+import { runImageUpload, ImageUploadError } from "@/lib/image-upload-client"
 import type { UserListItem } from "@/lib/admin-users"
 
 type UserRoleType = "student" | "teacher"
 type UserStatusType = "active" | "pending" | "suspended" | "blocked"
+
+/** Round profile-picture uploader used in the teacher create/edit forms. */
+function AvatarUploader({
+  value,
+  fullName,
+  onUploaded,
+  onRemove,
+}: {
+  value?: string | null
+  fullName?: string
+  onUploaded: (result: { url: string; key: string }) => void
+  onRemove: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return
+    setError(null)
+    setUploading(true)
+    try {
+      const result = await runImageUpload(file, { prefix: "avatars", name: file.name })
+      onUploaded(result)
+    } catch (e) {
+      setError(e instanceof ImageUploadError ? e.message : "فشل رفع الصورة")
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl font-bold text-gray-400">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="صورة المدرّس" className="w-full h-full object-cover" />
+          ) : (
+            <span>{fullName?.trim()?.charAt(0) || "؟"}</span>
+          )}
+        </div>
+        {uploading && (
+          <div className="absolute inset-0 rounded-full bg-white/70 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
+          </div>
+        )}
+        {value && !uploading && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow hover:bg-red-600"
+            aria-label="إزالة الصورة"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="space-y-1">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Camera className="h-4 w-4 ml-1" />
+          {value ? "تغيير الصورة" : "رفع صورة"}
+        </Button>
+        {error ? (
+          <p className="text-xs text-red-600">{error}</p>
+        ) : (
+          <p className="text-xs text-gray-500">صورة مربعة تظهر بشكل دائري (اختياري)</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const ITEMS_PER_PAGE = 5
 const ROLE_LABELS: Record<UserRoleType, string> = {
@@ -76,6 +163,8 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
     email: "",
     password: "",
     role: "student" as UserRoleType,
+    avatarUrl: "",
+    avatarKey: "",
   })
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -85,7 +174,16 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [detailsUser, setDetailsUser] = useState<UserListItem | null>(null)
   const [editUser, setEditUser] = useState<UserListItem | null>(null)
-  const [editForm, setEditForm] = useState({ fullName: "", phone: "", whatsapp: "", email: "", role: "student" as UserRoleType })
+  const [editForm, setEditForm] = useState({
+    fullName: "",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    bio: "",
+    role: "student" as UserRoleType,
+    avatarUrl: "",
+    avatarKey: "",
+  })
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -169,7 +267,10 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
       phone: user.phone,
       whatsapp: user.whatsapp || "",
       email: user.email || "",
+      bio: user.bio || "",
       role: user.role,
+      avatarUrl: user.avatarUrl || "",
+      avatarKey: "",
     })
     setEditError(null)
     setOpenMenuId(null)
@@ -190,7 +291,10 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
           phone: editForm.phone.replace(/\s/g, ""),
           whatsapp: editForm.whatsapp || undefined,
           email: editForm.email || undefined,
+          bio: editForm.role === "teacher" ? editForm.bio : "",
           role: editForm.role,
+          avatarUrl: editForm.role === "teacher" ? editForm.avatarUrl : "",
+          ...(editForm.avatarKey ? { avatarKey: editForm.avatarKey } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -208,6 +312,8 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                 phone: editForm.phone,
                 whatsapp: editForm.whatsapp || undefined,
                 email: editForm.email || undefined,
+                bio: editForm.role === "teacher" ? editForm.bio.trim() || undefined : undefined,
+                avatarUrl: editForm.role === "teacher" ? editForm.avatarUrl || undefined : undefined,
                 role: editForm.role,
               }
             : u
@@ -256,6 +362,8 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
           email: createForm.email || undefined,
           password: createForm.password,
           role: createForm.role,
+          avatarUrl: createForm.role === "teacher" ? createForm.avatarUrl || undefined : undefined,
+          avatarKey: createForm.role === "teacher" ? createForm.avatarKey || undefined : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -264,7 +372,7 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
         setCreateLoading(false)
         return
       }
-      setCreateForm({ fullName: "", phone: "", whatsapp: "", email: "", password: "", role: "student" })
+      setCreateForm({ fullName: "", phone: "", whatsapp: "", email: "", password: "", role: "student", avatarUrl: "", avatarKey: "" })
       setCreateOpen(false)
       const listRes = await fetch("/api/admin/users", { credentials: "include" })
       if (listRes.ok) {
@@ -475,6 +583,19 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                             <option value="teacher">معلم</option>
                           </select>
                         </Field>
+                        {createForm.role === "teacher" && (
+                          <Field>
+                            <FieldLabel className="text-gray-900 font-medium">صورة المدرّس</FieldLabel>
+                            <AvatarUploader
+                              value={createForm.avatarUrl}
+                              fullName={createForm.fullName}
+                              onUploaded={({ url, key }) =>
+                                setCreateForm((f) => ({ ...f, avatarUrl: url, avatarKey: key }))
+                              }
+                              onRemove={() => setCreateForm((f) => ({ ...f, avatarUrl: "", avatarKey: "" }))}
+                            />
+                          </Field>
+                        )}
                       </FieldGroup>
                       <DialogFooter className="mt-6 gap-2">
                         <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -506,9 +627,18 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                       <TableRow key={user.id} className="group border-b border-gray-100 last:border-0 hover:bg-amber-50/30 transition-colors">
                         <TableCell className="py-4 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm">
-                              {user.fullName.charAt(0)}
-                            </div>
+                            {user.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={user.avatarUrl}
+                                alt={user.fullName}
+                                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm">
+                                {user.fullName.charAt(0)}
+                              </div>
+                            )}
                             <div>
                               <p className="font-semibold text-gray-900">{user.fullName}</p>
                               <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -653,6 +783,14 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                           <span>{detailsUser.email}</span>
                         </div>
                       )}
+                      {detailsUser.role === "teacher" && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-gray-500">نبذة عن المدرّس</span>
+                          <span className="text-sm whitespace-pre-wrap">
+                            {detailsUser.bio?.trim() || "—"}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between gap-4">
                         <span className="text-gray-500">الدور</span>
                         <span>{ROLE_LABELS[detailsUser.role]}</span>
@@ -743,6 +881,34 @@ export function AdminUsersPageClient({ initialUsers = [] }: { initialUsers?: Use
                         <option value="teacher">معلم</option>
                       </select>
                     </FieldGroup>
+                    {editForm.role === "teacher" && (
+                      <FieldGroup>
+                        <FieldLabel>صورة المدرّس</FieldLabel>
+                        <AvatarUploader
+                          value={editForm.avatarUrl}
+                          fullName={editForm.fullName}
+                          onUploaded={({ url, key }) =>
+                            setEditForm((f) => ({ ...f, avatarUrl: url, avatarKey: key }))
+                          }
+                          onRemove={() => setEditForm((f) => ({ ...f, avatarUrl: "", avatarKey: "" }))}
+                        />
+                      </FieldGroup>
+                    )}
+                    {editForm.role === "teacher" && (
+                      <FieldGroup>
+                        <FieldLabel>نبذة عن المدرّس</FieldLabel>
+                        <FieldDescription>
+                          تظهر في صفحة الدورة ولوحة المدرّس
+                        </FieldDescription>
+                        <textarea
+                          value={editForm.bio}
+                          onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
+                          placeholder="اكتب نبذة قصيرة عن المدرّس تظهر للطلاب..."
+                          rows={4}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-y min-h-[96px]"
+                        />
+                      </FieldGroup>
+                    )}
                     <DialogFooter className="gap-2">
                       <Button type="button" variant="outline" onClick={() => setEditUser(null)} disabled={editLoading}>
                         إلغاء

@@ -13,9 +13,13 @@ export const metadata: Metadata = {
   title: 'Forleva',
   description: 'منصة تعليمية اجتماعية للمتعلمين',
   icons: {
-    icon: '/logo alone gold.png',
-    shortcut: '/logo alone gold.png',
-    apple: '/logo alone gold.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-icon.png',
   },
 }
 

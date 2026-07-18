@@ -18,6 +18,7 @@ type SettingsResponse = {
     email: string | null
     phone: string | null
     whatsapp: string | null
+    bio: string | null
     notificationPrefs: NotificationPrefs
   }
 }
@@ -39,6 +40,7 @@ export default function TeacherSettingsClient() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [whatsapp, setWhatsapp] = useState("")
+  const [bio, setBio] = useState("")
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
 
   const [currentPassword, setCurrentPassword] = useState("")
@@ -61,6 +63,7 @@ export default function TeacherSettingsClient() {
         setEmail(data.user.email ?? "")
         setPhone(data.user.phone ?? "")
         setWhatsapp(data.user.whatsapp ?? "")
+        setBio(data.user.bio ?? "")
         setPrefs(data.user.notificationPrefs ?? DEFAULT_PREFS)
       })
       .catch((e) => {
@@ -162,6 +165,13 @@ export default function TeacherSettingsClient() {
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="البريد الإلكتروني" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg" />
               <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" placeholder="رقم الهاتف" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg" />
               <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} type="tel" placeholder="رقم واتساب" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-gray-800">نبذة عن المدرّس</p>
+              <p className="text-xs text-gray-500">تُعدّل من لوحة الإدارة وتظهر في صفحات الدورات</p>
+              <div className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700 whitespace-pre-wrap min-h-[88px]">
+                {bio.trim() || "لم تتم إضافة نبذة بعد."}
+              </div>
             </div>
             <div className="flex justify-end">
               <button disabled={!canSave} className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg disabled:opacity-50">

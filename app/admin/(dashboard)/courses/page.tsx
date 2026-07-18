@@ -11,9 +11,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { TablePagination } from '@/components/ui/table-pagination'
 import Link from 'next/link'
 import { BookOpen, Search, Loader2, CheckCircle2, XCircle, PauseCircle, ExternalLink } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
+
+const PAGE_SIZE = 10
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -65,11 +68,16 @@ export default function AdminCoursesPage() {
   const [searchInput, setSearchInput] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 300)
     return () => clearTimeout(t)
   }, [searchInput])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, searchDebounced])
 
   const fetchCourses = useCallback(async () => {
     setLoading(true)
@@ -132,6 +140,9 @@ export default function AdminCoursesPage() {
       setActingId(null)
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(courses.length / PAGE_SIZE))
+  const paginatedCourses = courses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="flex flex-1 flex-col gap-6" dir="rtl">
@@ -231,7 +242,7 @@ export default function AdminCoursesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {courses.map((course) => (
+              {paginatedCourses.map((course) => (
                 <TableRow key={course.id}>
                   <TableCell className="font-medium text-gray-900">{course.title}</TableCell>
                   <TableCell className="text-gray-600">
@@ -314,6 +325,15 @@ export default function AdminCoursesPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+        {!loading && courses.length > 0 && (
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={courses.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         )}
       </DashboardContentCard>
     </div>

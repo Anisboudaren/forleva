@@ -1,8 +1,32 @@
+import Link from "next/link"
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
-import { Users, UserPlus, GraduationCap, Award, Search, Mail, Calendar } from "lucide-react"
+import { Users, UserPlus, GraduationCap, Award, Search, Mail, Calendar, ChevronRight, ChevronLeft } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
+import { cn } from "@/lib/utils"
+
+const PAGE_SIZE = 10
+
+function buildStudentsHref(page: number, q: string) {
+  const params = new URLSearchParams()
+  if (q) params.set("q", q)
+  if (page > 1) params.set("page", String(page))
+  const qs = params.toString()
+  return qs ? `?${qs}` : "?"
+}
+
+function getPageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | "ellipsis")[] = [1]
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  if (start > 2) pages.push("ellipsis")
+  for (let p = start; p <= end; p++) pages.push(p)
+  if (end < total - 1) pages.push("ellipsis")
+  pages.push(total)
+  return pages
+}
 
 function formatDateAr(date: Date) {
   return date.toLocaleDateString("ar-DZ", { day: "numeric", month: "long", year: "numeric" })
@@ -17,7 +41,14 @@ function formatRelativeAr(date: Date) {
   return `منذ ${diffDays} يوم`
 }
 
-export default async function StudentsPage() {
+export default async function StudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; q?: string }>
+}) {
+  const sp = await searchParams
+  const q = (sp.q ?? "").trim()
+  const pageParam = Number(sp.page)
   const session = await getUserSession()
   if (!session || session.role !== "TEACHER") {
     return (
@@ -130,6 +161,21 @@ export default async function StudentsPage() {
   const totalCompleted = students.reduce((sum, s) => sum + s.completedCourses, 0)
   const totalCertificates = 0
 
+  const qLower = q.toLowerCase()
+  const filteredStudents = qLower
+    ? students.filter(
+        (s) =>
+          s.name.toLowerCase().includes(qLower) || s.email.toLowerCase().includes(qLower)
+      )
+    : students
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE))
+  const page = Math.min(
+    Math.max(1, Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1),
+    totalPages
+  )
+  const pagedStudents = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pageWindow = getPageWindow(page, totalPages)
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       {/* Header */}
@@ -175,23 +221,30 @@ export default async function StudentsPage() {
       </div>
 
       {/* Search */}
-      <div className="relative w-full sm:w-96">
+      <form className="relative w-full sm:w-96">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
-          placeholder="ابحث عن طالب..."
+          name="q"
+          defaultValue={q}
+          placeholder="ابحث عن طالب... (اضغط Enter)"
           className="w-full pr-10 pl-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
         />
-      </div>
+      </form>
 
       {/* Students List */}
       <DashboardContentCard
         title="قائمة الطلاب"
-        description={`${totalStudents} طالب نشط`}
+        description={q ? `${filteredStudents.length} نتيجة بحث` : `${totalStudents} طالب نشط`}
         icon={Users}
       >
+        {filteredStudents.length === 0 ? (
+          <p className="py-10 text-center text-sm text-gray-600">
+            {q ? "لا توجد نتائج مطابقة لبحثك." : "لا يوجد طلاب بعد."}
+          </p>
+        ) : (
         <div className="space-y-4">
-          {students.map((student) => (
+          {pagedStudents.map((student) => (
             <details key={student.id} className="border border-gray-200 rounded-xl overflow-hidden group open:shadow-md transition-all duration-300">
               <summary className="list-none cursor-pointer p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -252,6 +305,56 @@ export default async function StudentsPage() {
             </details>
           ))}
         </div>
+        )}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-600">
+              عرض {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredStudents.length)} من {filteredStudents.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <Link
+                href={buildStudentsHref(page - 1, q)}
+                aria-disabled={page === 1}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm text-gray-700 hover:bg-gray-100",
+                  page === 1 && "pointer-events-none opacity-50"
+                )}
+              >
+                <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline">السابق</span>
+              </Link>
+              {pageWindow.map((item, idx) =>
+                item === "ellipsis" ? (
+                  <span key={`e-${idx}`} className="px-2 text-gray-400">…</span>
+                ) : (
+                  <Link
+                    key={item}
+                    href={buildStudentsHref(item, q)}
+                    className={cn(
+                      "inline-flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-sm",
+                      item === page
+                        ? "border border-gray-200 bg-white font-semibold text-gray-900"
+                        : "text-gray-700 hover:bg-gray-100"
+                    )}
+                  >
+                    {item}
+                  </Link>
+                )
+              )}
+              <Link
+                href={buildStudentsHref(page + 1, q)}
+                aria-disabled={page === totalPages}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm text-gray-700 hover:bg-gray-100",
+                  page === totalPages && "pointer-events-none opacity-50"
+                )}
+              >
+                <span className="hidden sm:inline">التالي</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        )}
       </DashboardContentCard>
     </div>
   )

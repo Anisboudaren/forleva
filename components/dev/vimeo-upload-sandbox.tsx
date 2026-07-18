@@ -9,9 +9,9 @@ import {
 } from '@/lib/vimeo'
 import {
   buildVimeoUploadErrorMessage,
-  logVimeoUploadError,
   type VimeoUploadFailureDetails,
 } from '@/lib/vimeo-errors'
+import { runVimeoUpload, VimeoUploadError } from '@/lib/vimeo-upload-client'
 
 type UploadResponse = {
   ok?: boolean
@@ -173,6 +173,7 @@ export function VimeoUploadSandbox() {
   const [name, setName] = useState('Sandbox upload')
   const [durationSec, setDurationSec] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<UploadResponse | null>(null)
   const [existingVideos, setExistingVideos] = useState<ExistingVideoItem[]>([])
@@ -313,63 +314,53 @@ export function VimeoUploadSandbox() {
   const submit = async () => {
     if (!file || uploading) return
     setUploading(true)
+    setUploadProgress(0)
     setError(null)
     setResult(null)
 
     try {
-      const form = new FormData()
-      form.append('file', file)
-      form.append('name', name.trim() || file.name)
-      if (durationSec !== null && Number.isFinite(durationSec) && durationSec > 0) {
-        form.append('durationSec', String(Math.floor(durationSec)))
-      }
-
-      const res = await fetch('/api/vimeo/upload', {
-        method: 'POST',
-        headers: {
-          'x-vimeo-sandbox-test': '1',
-        },
-        body: form,
+      const uploaded = await runVimeoUpload(file, {
+        name: name.trim() || file.name,
+        sandbox: true,
+        onProgress: setUploadProgress,
       })
-      const contentType = res.headers.get('content-type') ?? ''
-      const data = (
-        contentType.includes('application/json')
-          ? await res.json().catch(() => ({}))
-          : { detail: (await res.text().catch(() => '')).slice(0, 500), code: 'NON_JSON_RESPONSE' }
-      ) as UploadResponse
-      if (!res.ok || data.ok === false) {
-        const details: VimeoUploadFailureDetails = {
-          code: data.code,
-          error: data.error,
-          requestId: data.requestId,
-          httpStatus: res.status,
-          providerStatus: data.providerStatus,
-          providerError: data.providerError,
-          providerDeveloperMessage: data.providerDeveloperMessage,
-          providerRequestId: data.providerRequestId,
-          providerInvalidParameters: data.providerInvalidParameters,
-          detail: typeof (data as { detail?: string }).detail === 'string'
-            ? (data as { detail?: string }).detail
-            : undefined,
-          fileName: file.name,
-          fileSizeBytes: file.size,
-        }
-        logVimeoUploadError('client', details)
-        setError(buildVimeoUploadErrorMessage(details))
-        setResult(data)
+      setResult({
+        ok: true,
+        mode: 'sandbox-no-auth',
+        provider: 'vimeo',
+        vimeoId: uploaded.vimeoId,
+        videoUrl: uploaded.videoUrl,
+        embedUrl: uploaded.embedUrl ?? null,
+        upload: {
+          name: name.trim() || file.name,
+          sizeBytes: file.size,
+          mimeType: file.type || undefined,
+        },
+      })
+      setSelectedExistingVideo(null)
+    } catch (err) {
+      if (err instanceof VimeoUploadError) {
+        setError(err.message)
+        setResult({
+          ok: false,
+          code: err.details.code,
+          error: err.details.error,
+          requestId: err.details.requestId,
+          providerStatus: err.details.providerStatus,
+          providerError: err.details.providerError,
+          providerDeveloperMessage: err.details.providerDeveloperMessage,
+          providerRequestId: err.details.providerRequestId,
+          providerInvalidParameters: err.details.providerInvalidParameters,
+        })
         return
       }
-      setResult(data)
-      setSelectedExistingVideo(null)
-    } catch (networkErr) {
       const details: VimeoUploadFailureDetails = {
         code: 'NETWORK_ERROR',
         error: 'Network error while uploading video',
-        detail: networkErr instanceof Error ? networkErr.message : String(networkErr),
+        detail: err instanceof Error ? err.message : String(err),
         fileName: file?.name,
         fileSizeBytes: file?.size,
       }
-      logVimeoUploadError('client', details)
       setError(buildVimeoUploadErrorMessage(details))
     } finally {
       setUploading(false)
@@ -453,8 +444,17 @@ export function VimeoUploadSandbox() {
           disabled={!file || uploading}
           className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {uploading ? 'Uploading...' : 'Test Vimeo Upload'}
+          {uploading ? `Uploading… ${uploadProgress}%` : 'Test Vimeo Upload'}
         </button>
+
+        {uploading && (
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-[width]"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </section>

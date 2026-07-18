@@ -12,7 +12,9 @@ type CourseApi = {
   id: string
   title: string
   category: string
+  categoryId?: string | null
   price: number
+  originalPrice?: number | null
   imageUrl: string | null
   videoUrl: string | null
   duration: string | null
@@ -49,7 +51,10 @@ function mapApiToFormData(c: CourseApi): CourseFormData {
   return {
     title: c.title,
     category: c.category,
+    categoryId: c.categoryId ?? '',
     price: String(c.price),
+    originalPrice:
+      typeof c.originalPrice === 'number' && c.originalPrice > 0 ? String(c.originalPrice) : '',
     imageUrl: c.imageUrl ?? '',
     videoUrl: c.videoUrl ?? '',
     duration: c.duration ?? '',

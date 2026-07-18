@@ -42,7 +42,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, fullName: true, email: true, phone: true, whatsapp: true, notificationPrefs: true },
+    select: { id: true, fullName: true, email: true, phone: true, whatsapp: true, bio: true, notificationPrefs: true },
   })
   if (!user) return jsonError("المستخدم غير موجود", 404)
 
@@ -54,6 +54,7 @@ export async function GET() {
       email: user.email,
       phone: user.phone,
       whatsapp: user.whatsapp,
+      bio: user.bio,
       notificationPrefs: prefs,
     },
   })

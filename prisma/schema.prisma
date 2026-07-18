@@ -83,6 +83,11 @@ model User {
   phone           String?       @unique
   passwordHash    String
   fullName        String?
+  /// Public teacher bio shown on course landing and teacher dashboard.
+  bio             String?
+  /// Public teacher profile picture shown on course landing and cards.
+  avatarUrl       String?
+  avatarKey       String?
   whatsapp        String?
   notificationPrefs Json?
   termsAcceptedAt DateTime?
@@ -100,13 +105,34 @@ model User {
   itemSubmissions CourseItemSubmission[]
 }
 
+model CourseCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  imageKey    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  courses     Course[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
 model Course {
   id               String       @id @default(cuid())
   teacherId        String
   status           CourseStatus @default(DRAFT)
   title            String
+  /// Legacy display name; kept for backward compatibility with existing pages.
   category         String
+  categoryId       String?
   price            Int
+  /// Optional original ("was") price used to show a real discount on the sales page.
+  originalPrice    Int?
   imageUrl         String?
   /// Main course video URL (Vimeo)
   videoUrl         String?
@@ -119,6 +145,7 @@ model Course {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   teacher          User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  courseCategory   CourseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sections         CourseSection[]
   orders           Order[]
   reviews         Review[]
@@ -130,6 +157,7 @@ model Course {
 
   @@index([teacherId])
   @@index([status])
+  @@index([categoryId])
 }
 
 model CourseQuestion {

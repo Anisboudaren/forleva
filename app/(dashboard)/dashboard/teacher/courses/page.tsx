@@ -7,6 +7,9 @@ import { SafeCourseImage } from '@/components/safe-course-image'
 import { GradientText } from '@/components/text/gradient-text'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { TablePagination } from '@/components/ui/table-pagination'
+
+const PAGE_SIZE = 9
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -49,6 +52,11 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [filter, search])
 
   const fetchCourses = useCallback(async () => {
     setLoading(true)
@@ -359,17 +367,26 @@ export default function CoursesPage() {
           icon={BookOpen}
         >
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredBySearch.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                onStatusChange={updateStatus}
-                updatingId={updatingId}
-                openMenuId={openMenuId}
-                setOpenMenuId={setOpenMenuId}
-              />
-            ))}
+            {filteredBySearch
+              .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+              .map((course) => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  onStatusChange={updateStatus}
+                  updatingId={updatingId}
+                  openMenuId={openMenuId}
+                  setOpenMenuId={setOpenMenuId}
+                />
+              ))}
           </div>
+          <TablePagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(filteredBySearch.length / PAGE_SIZE))}
+            totalItems={filteredBySearch.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </DashboardContentCard>
       )}
     </div>

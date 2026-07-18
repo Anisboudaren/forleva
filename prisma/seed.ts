@@ -2,6 +2,10 @@ import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import bcrypt from 'bcrypt'
+import {
+  DEFAULT_COURSE_CATEGORIES,
+  slugifyCategoryName,
+} from '../lib/course-categories'
 
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL is not set')
@@ -11,8 +15,30 @@ const prisma = new PrismaClient({ adapter })
 const TEACHER_EMAIL = 'teacher@forleva.demo'
 const TEACHER_PASSWORD = 'Teacher123!'
 
+async function ensureCategories() {
+  for (let i = 0; i < DEFAULT_COURSE_CATEGORIES.length; i++) {
+    const item = DEFAULT_COURSE_CATEGORIES[i]
+    await prisma.courseCategory.upsert({
+      where: { name: item.name },
+      create: {
+        name: item.name,
+        slug: slugifyCategoryName(item.name),
+        description: item.description,
+        sortOrder: i,
+        isActive: true,
+      },
+      update: {
+        description: item.description,
+        sortOrder: i,
+        isActive: true,
+      },
+    })
+  }
+}
+
 async function main() {
   await prisma.$connect()
+  await ensureCategories()
 
   // --- Super admin (optional) ---
   const email = process.env.SEED_SUPER_ADMIN_EMAIL
@@ -64,12 +90,15 @@ async function main() {
   const courseImageUrl =
     'https://bhaavyakapur.com/assets-admin/images/blog/thumbnail_images/1743054268Professional%20Makeup%20Artist%20Course.webp'
 
+  const designCategory = await prisma.courseCategory.findUnique({ where: { name: 'تصميم' } })
+
   await prisma.course.create({
     data: {
       teacherId: teacher.id,
       status: 'PUBLISHED',
       title: 'دورة فن المكياج الاحترافي',
       category: 'تصميم',
+      categoryId: designCategory?.id ?? null,
       price: 2990,
       imageUrl: courseImageUrl,
       duration: '6 أسابيع',

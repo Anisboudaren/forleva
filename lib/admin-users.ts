@@ -8,6 +8,10 @@ export type UserListItem = {
   phone: string
   whatsapp?: string
   email?: string
+  /** Public teacher bio (admin-editable). */
+  bio?: string
+  /** Public teacher profile picture (admin-editable). */
+  avatarUrl?: string
   role: 'student' | 'teacher'
   joinDate: string
   lastActive: string
@@ -31,6 +35,8 @@ export async function getUsersListForAdmin(): Promise<UserListItem[]> {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
+          bio: u.bio ?? undefined,
+          avatarUrl: u.avatarUrl ?? undefined,
           role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: formatDateAr(u.createdAt),
           lastActive: formatRelativeAr(u.updatedAt),
@@ -43,6 +49,8 @@ export async function getUsersListForAdmin(): Promise<UserListItem[]> {
           phone: u.phone ?? '—',
           whatsapp: u.whatsapp ?? undefined,
           email: u.email ?? undefined,
+          bio: u.bio ?? undefined,
+          avatarUrl: u.avatarUrl ?? undefined,
           role: u.role === 'TEACHER' ? 'teacher' : 'student',
           joinDate: '—',
           lastActive: '—',

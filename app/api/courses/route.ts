@@ -10,8 +10,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const rawQuery = searchParams.get('q')?.trim() ?? ''
     const query = rawQuery.length > 0 ? rawQuery : null
-    const parsedLimit = Number(searchParams.get('limit'))
-    const take = Number.isFinite(parsedLimit)
+    const rawLimit = searchParams.get('limit')
+    const parsedLimit = rawLimit !== null ? Number(rawLimit) : NaN
+    const take = Number.isFinite(parsedLimit) && parsedLimit > 0
       ? Math.min(Math.max(Math.floor(parsedLimit), 1), 50)
       : query
         ? 5
@@ -40,25 +41,34 @@ export async function GET(request: Request) {
         id: true,
         title: true,
         category: true,
+        categoryId: true,
         price: true,
+        originalPrice: true,
         imageUrl: true,
         duration: true,
         level: true,
         language: true,
-        teacher: { select: { fullName: true } },
+        teacher: { select: { fullName: true, avatarUrl: true } },
+        courseCategory: {
+          select: { id: true, name: true, slug: true },
+        },
       },
     })
     return NextResponse.json(
       courses.map((c) => ({
         id: c.id,
         title: c.title,
-        category: c.category,
+        category: c.courseCategory?.name ?? c.category,
+        categoryId: c.categoryId,
+        categorySlug: c.courseCategory?.slug ?? null,
         price: c.price,
+        originalPrice: c.originalPrice ?? null,
         imageUrl: c.imageUrl ? getSafeCourseImageUrl(c.imageUrl) : null,
         duration: c.duration,
         level: c.level,
         language: c.language,
         instructor: c.teacher?.fullName ?? 'مدرّس',
+        instructorAvatar: c.teacher?.avatarUrl ?? null,
       }))
     )
   } catch (e) {

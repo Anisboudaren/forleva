@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import {
   EMPTY_SALES_PAGE_DATA,
+  DEFAULT_INCLUDED_BENEFITS,
   type SalesPageData,
   type SalesBonusType,
   type FormationInfoItem,
@@ -88,7 +89,10 @@ export interface Section {
 export interface CourseFormData {
   title: string
   category: string
+  categoryId?: string
   price: string
+  /** Optional original ("was") price to show a real discount on the sales page. */
+  originalPrice: string
   imageUrl: string
   /** Main course presentation video (Vimeo URL), shown on course page before purchase */
   videoUrl?: string
@@ -117,8 +121,13 @@ const CONTENT_TYPES: {
 ]
 
 const LEVELS = ['مبتدئ', 'متوسط', 'متقدم', 'كافة المستويات']
-const CATEGORIES = ['برمجة', 'تصميم', 'تسويق', 'أعمال', 'لغات', 'أخرى']
 const LANGUAGES = ['العربية', 'English', 'Français']
+
+type CategoryOption = {
+  id: string
+  name: string
+  slug: string
+}
 
 const defaultSection = (): Section => ({
   id: crypto.randomUUID(),
@@ -161,6 +170,79 @@ function formatImageUploadError(err: unknown, fallback: string): string {
   if (err instanceof DocumentUploadError) return err.message
   if (err instanceof Error && err.message.trim()) return err.message
   return fallback
+}
+
+/**
+ * Small self-contained image uploader for sales-page photos (social proof
+ * screenshots, before/after images). Manages its own upload state and calls
+ * `onChange` with the resulting public URL, or an empty string on remove.
+ */
+function SalesImageUploader({
+  value,
+  onChange,
+  label,
+}: {
+  value?: string
+  onChange: (url: string) => void
+  label: string
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    try {
+      const result = await runImageUpload(file, { prefix: 'sales-photos' })
+      onChange(result.url)
+    } catch (err) {
+      setError(formatImageUploadError(err, 'فشل رفع الصورة'))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="block text-xs text-gray-600">{label}</Label>
+      {value ? (
+        <div className="flex items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getSafeCourseImageUrl(value)}
+            alt={label}
+            className="h-24 w-auto max-w-full rounded-lg border border-gray-200 object-cover"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onChange('')}
+          >
+            <Trash2 className="h-4 w-4 ml-1" />
+            إزالة
+          </Button>
+        </div>
+      ) : (
+        <input
+          type="file"
+          accept="image/*"
+          className="block w-full text-sm text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm"
+          onChange={handleSelect}
+          disabled={uploading}
+        />
+      )}
+      {uploading && <p className="text-xs text-gray-500">جاري الرفع...</p>}
+      {error && (
+        <p className="text-xs text-red-600" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function ContentItemRow({
@@ -718,7 +800,9 @@ export type CreateCourseFormProps = {
 const defaultFormData: CourseFormData = {
   title: '',
   category: '',
+  categoryId: '',
   price: '',
+  originalPrice: '',
   imageUrl: '',
   videoUrl: '',
   duration: '',
@@ -747,6 +831,10 @@ function withSalesDefaults(data: CourseFormData): CourseFormData {
       socialProof: data.salesPageData?.socialProof ?? [],
       beforeAfter: data.salesPageData?.beforeAfter ?? [],
       bonuses: data.salesPageData?.bonuses ?? [],
+      includedBenefits:
+        data.salesPageData?.includedBenefits?.length
+          ? data.salesPageData.includedBenefits
+          : [...DEFAULT_INCLUDED_BENEFITS],
     },
   }
 }
@@ -761,9 +849,42 @@ export function CreateCourseForm({
   const [form, setForm] = useState<CourseFormData>(
     initialData ? withSalesDefaults(initialData) : defaultFormData
   )
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
+
   useEffect(() => {
     if (mode === 'edit' && initialData) setForm(withSalesDefaults(initialData))
   }, [mode, initialData])
+
+  useEffect(() => {
+    let cancelled = false
+    setCategoriesLoading(true)
+    fetch('/api/categories')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CategoryOption[]) => {
+        if (cancelled) return
+        const list = Array.isArray(data) ? data : []
+        setCategoryOptions(list)
+
+        // Keep legacy category name selected if categoryId is missing.
+        setForm((prev) => {
+          if (prev.categoryId) return prev
+          if (!prev.category) return prev
+          const match = list.find((c) => c.name === prev.category)
+          if (!match) return prev
+          return { ...prev, categoryId: match.id, category: match.name }
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const update = <K extends keyof CourseFormData>(key: K, value: CourseFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -865,6 +986,37 @@ export function CreateCourseForm({
       salesPageData: {
         ...prev.salesPageData,
         bonuses: [...prev.salesPageData.bonuses, { title: '', description: '', type: 'free' }],
+      },
+    }))
+  }
+
+  const setIncludedBenefit = (index: number, value: string) => {
+    setForm((prev) => {
+      const next = [...prev.salesPageData.includedBenefits]
+      next[index] = value
+      return {
+        ...prev,
+        salesPageData: { ...prev.salesPageData, includedBenefits: next },
+      }
+    })
+  }
+
+  const addIncludedBenefit = () => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        includedBenefits: [...prev.salesPageData.includedBenefits, ''],
+      },
+    }))
+  }
+
+  const removeIncludedBenefit = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      salesPageData: {
+        ...prev.salesPageData,
+        includedBenefits: prev.salesPageData.includedBenefits.filter((_, i) => i !== index),
       },
     }))
   }
@@ -972,11 +1124,19 @@ export function CreateCourseForm({
           role: item.role.trim(),
           quote: item.quote.trim(),
           rating: item.rating && item.rating >= 1 && item.rating <= 5 ? item.rating : undefined,
+          imageUrl: item.imageUrl?.trim() || undefined,
         }))
-        .filter((item) => item.name || item.role || item.quote),
+        .filter((item) => item.name || item.role || item.quote || item.imageUrl),
       beforeAfter: form.salesPageData.beforeAfter
-        .map((item) => ({ before: item.before.trim(), after: item.after.trim() }))
-        .filter((item) => item.before || item.after),
+        .map((item) => ({
+          before: item.before.trim(),
+          after: item.after.trim(),
+          beforeImageUrl: item.beforeImageUrl?.trim() || undefined,
+          afterImageUrl: item.afterImageUrl?.trim() || undefined,
+        }))
+        .filter(
+          (item) => item.before || item.after || item.beforeImageUrl || item.afterImageUrl
+        ),
       bonuses: form.salesPageData.bonuses
         .map((item) => {
           const priceNum = Number(item.price)
@@ -992,6 +1152,9 @@ export function CreateCourseForm({
           }
         })
         .filter((item) => item.title || item.description),
+      includedBenefits: form.salesPageData.includedBenefits
+        .map((item) => item.trim())
+        .filter(Boolean),
     }
     const sections = form.sections.map((sec) => ({
       title: sec.title.trim() || 'قسم',
@@ -1014,7 +1177,12 @@ export function CreateCourseForm({
     return {
       title: form.title.trim(),
       category: form.category.trim() || 'أخرى',
+      categoryId: form.categoryId?.trim() || undefined,
       price: form.price === '' ? 0 : parseInt(String(form.price), 10) || 0,
+      originalPrice:
+        form.originalPrice.trim() === ''
+          ? null
+          : parseInt(String(form.originalPrice), 10) || null,
       imageUrl: form.imageUrl.trim() || undefined,
       videoUrl: form.videoUrl?.trim() || undefined,
       duration: form.duration.trim() || undefined,
@@ -1338,16 +1506,32 @@ export function CreateCourseForm({
               </Label>
               <select
                 id="category"
-                value={form.category}
-                onChange={(e) => update('category', e.target.value)}
+                value={form.categoryId || ''}
+                onChange={(e) => {
+                  const selectedId = e.target.value
+                  const selected = categoryOptions.find((c) => c.id === selectedId)
+                  setForm((prev) => ({
+                    ...prev,
+                    categoryId: selectedId,
+                    category: selected?.name ?? '',
+                  }))
+                }}
+                disabled={categoriesLoading}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="">اختر التصنيف</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                <option value="">
+                  {categoriesLoading ? 'جارٍ تحميل الفئات...' : 'اختر التصنيف'}
+                </option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
+                {!categoriesLoading &&
+                  form.category &&
+                  !categoryOptions.some((c) => c.id === form.categoryId) && (
+                    <option value={form.categoryId || ''}>{form.category} (قديم)</option>
+                  )}
               </select>
             </div>
             <div>
@@ -1362,6 +1546,22 @@ export function CreateCourseForm({
                 onChange={(e) => update('price', e.target.value)}
                 placeholder="0"
               />
+            </div>
+            <div>
+              <Label htmlFor="originalPrice" className="mb-2 block">
+                السعر الأصلي قبل التخفيض (اختياري)
+              </Label>
+              <Input
+                id="originalPrice"
+                type="number"
+                min={0}
+                value={form.originalPrice}
+                onChange={(e) => update('originalPrice', e.target.value)}
+                placeholder="اتركه فارغاً إن لم يوجد تخفيض"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                يجب أن يكون أكبر من السعر الحالي ليظهر التخفيض الحقيقي في صفحة الدورة.
+              </p>
             </div>
             <div>
               <Label htmlFor="duration" className="mb-2 block">
@@ -1651,7 +1851,12 @@ export function CreateCourseForm({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Social Proof</h3>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Social Proof</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    يمكنك إضافة صورة (لقطة شاشة لتعليق حقيقي) — الاسم والنص اختياريان معها.
+                  </p>
+                </div>
                 <Button type="button" variant="outline" size="sm" onClick={addSocialProof}>
                   <Plus className="h-4 w-4 ml-1" />
                   إضافة شهادة
@@ -1663,20 +1868,25 @@ export function CreateCourseForm({
                     <Input
                       value={item.name}
                       onChange={(e) => setSocialProof(index, { name: e.target.value })}
-                      placeholder="الاسم"
+                      placeholder="الاسم (اختياري)"
                     />
                     <Input
                       value={item.role}
                       onChange={(e) => setSocialProof(index, { role: e.target.value })}
-                      placeholder="الصفة"
+                      placeholder="الصفة (اختياري)"
                     />
                   </div>
                   <textarea
                     value={item.quote}
                     onChange={(e) => setSocialProof(index, { quote: e.target.value })}
-                    placeholder="نص الشهادة"
+                    placeholder="نص الشهادة (اختياري)"
                     rows={3}
                     className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  />
+                  <SalesImageUploader
+                    label="صورة الشهادة (اختياري)"
+                    value={item.imageUrl}
+                    onChange={(url) => setSocialProof(index, { imageUrl: url || undefined })}
                   />
                   <div className="flex items-center gap-2">
                     <Input
@@ -1707,33 +1917,56 @@ export function CreateCourseForm({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Before / After</h3>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Before / After</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    أضف صورتين (قبل وبعد) لعرض شريط مقارنة قابل للسحب، أو اكتب نصاً فقط.
+                  </p>
+                </div>
                 <Button type="button" variant="outline" size="sm" onClick={addBeforeAfter}>
                   <Plus className="h-4 w-4 ml-1" />
                   إضافة مقارنة
                 </Button>
               </div>
               {form.salesPageData.beforeAfter.map((item, index) => (
-                <div key={`ba-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <Input
-                    value={item.before}
-                    onChange={(e) => setBeforeAfter(index, { before: e.target.value })}
-                    placeholder="قبل"
-                  />
-                  <Input
-                    value={item.after}
-                    onChange={(e) => setBeforeAfter(index, { after: e.target.value })}
-                    placeholder="بعد"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeSalesArrayItem('beforeAfter', index)}
-                    aria-label="حذف"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div key={`ba-${index}`} className="space-y-3 rounded-lg border p-3">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                    <Input
+                      value={item.before}
+                      onChange={(e) => setBeforeAfter(index, { before: e.target.value })}
+                      placeholder="نص قبل (اختياري)"
+                    />
+                    <Input
+                      value={item.after}
+                      onChange={(e) => setBeforeAfter(index, { after: e.target.value })}
+                      placeholder="نص بعد (اختياري)"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeSalesArrayItem('beforeAfter', index)}
+                      aria-label="حذف"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SalesImageUploader
+                      label="صورة قبل"
+                      value={item.beforeImageUrl}
+                      onChange={(url) =>
+                        setBeforeAfter(index, { beforeImageUrl: url || undefined })
+                      }
+                    />
+                    <SalesImageUploader
+                      label="صورة بعد"
+                      value={item.afterImageUrl}
+                      onChange={(url) =>
+                        setBeforeAfter(index, { afterImageUrl: url || undefined })
+                      }
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1798,6 +2031,40 @@ export function CreateCourseForm({
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900">مزايا الاشتراك</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    تظهر تحت زر الاشتراك في صفحة الدورة
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addIncludedBenefit}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  إضافة ميزة
+                </Button>
+              </div>
+              {form.salesPageData.includedBenefits.map((item, index) => (
+                <div key={`benefit-${index}`} className="flex items-center gap-2">
+                  <Input
+                    value={item}
+                    onChange={(e) => setIncludedBenefit(index, e.target.value)}
+                    placeholder="مثال: وصول لمدة 12 شهر"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeIncludedBenefit(index)}
+                    aria-label="حذف"
+                    disabled={form.salesPageData.includedBenefits.length <= 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>

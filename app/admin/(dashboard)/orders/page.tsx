@@ -20,9 +20,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { ShoppingBag, FileText, Search, Loader2, Copy, MessageCircle, Eye, Phone, UserPlus, CheckCircle2 } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 import type { PaymentMethod } from '@/lib/schema-enums'
+
+const PAGE_SIZE = 10
 
 type OrderStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED'
 
@@ -138,11 +141,16 @@ export default function AdminOrdersPage() {
   const [createAccountError, setCreateAccountError] = useState<string | null>(null)
   const [createAccountSuccess, setCreateAccountSuccess] = useState(false)
   const [existingUserIdToLink, setExistingUserIdToLink] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 300)
     return () => clearTimeout(t)
   }, [searchInput])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, searchDebounced])
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -315,6 +323,9 @@ export default function AdminOrdersPage() {
   const detailEmail = selectedOrder?.user?.email ?? clientInfo?.email ?? null
   const detailWhatsapp = selectedOrder?.user?.whatsapp ?? clientInfo?.whatsapp ?? detailPhone
 
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE))
+  const paginatedOrders = orders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   return (
     <div className="flex flex-1 flex-col gap-6" dir="rtl">
       <div className="flex flex-col gap-2">
@@ -391,7 +402,7 @@ export default function AdminOrdersPage() {
           <>
             {/* Mobile: compact list */}
             <ul className="md:hidden divide-y divide-gray-100 -mx-1">
-              {orders.map((order) => (
+              {paginatedOrders.map((order) => (
                 <li key={order.id} className="flex items-center gap-3 py-3 px-1">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate flex items-center gap-1.5">
@@ -436,7 +447,7 @@ export default function AdminOrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order) => (
+              {paginatedOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-gray-600">{shortId(order.id)}</TableCell>
                   <TableCell>
@@ -497,6 +508,13 @@ export default function AdminOrdersPage() {
             </TableBody>
           </Table>
             </div>
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={orders.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </>
         )}
       </DashboardContentCard>

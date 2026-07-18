@@ -8,7 +8,10 @@ This checklist is for the full cutover after sandbox validation.
   - Replace calls to:
     - `/api/mux/direct-upload`
     - `/api/mux/upload/[uploadId]/status`
-  - Use `/api/vimeo/upload` with `FormData` (`file`, optional `name`, optional `courseId`).
+  - Use browser→Vimeo TUS via `runVimeoUpload` (`lib/vimeo-upload-client.ts`):
+    - `POST /api/vimeo/upload` (JSON: size/mime/name) creates the ticket
+    - browser PATCHes chunks to Vimeo `upload_link`
+    - `POST /api/vimeo/upload/complete` verifies and optionally saves `courseId`
   - Remove Mux-specific upload progress/polling assumptions.
 
 ## Replace Playback Flow (Public Course + Student Studio)

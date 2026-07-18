@@ -19,7 +19,7 @@ export async function GET(
   try {
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, fullName: true, email: true, phone: true, whatsapp: true },
+      select: { id: true, fullName: true, email: true, phone: true, whatsapp: true, bio: true, avatarUrl: true, avatarKey: true },
     })
     if (!user) {
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 })
@@ -30,6 +30,9 @@ export async function GET(
       email: user.email ?? null,
       phone: user.phone ?? null,
       whatsapp: user.whatsapp ?? null,
+      bio: user.bio ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      avatarKey: user.avatarKey ?? null,
     })
   } catch (e) {
     console.error('GET /api/admin/users/[id]', e)
@@ -55,6 +58,12 @@ export async function PATCH(
     const phone = (body.phone as string)?.trim().replace(/\s/g, '')
     const whatsapp = (body.whatsapp as string)?.trim().replace(/\s/g, '') || undefined
     const email = (body.email as string)?.trim() || undefined
+    const bio =
+      typeof body.bio === 'string' ? body.bio.trim() || null : undefined
+    const avatarUrl =
+      typeof body.avatarUrl === 'string' ? body.avatarUrl.trim() || null : undefined
+    const avatarKey =
+      typeof body.avatarKey === 'string' ? body.avatarKey.trim() || null : undefined
     const roleInput = (body.role as string)?.toLowerCase()
     const role: UserRole = roleInput === 'teacher' ? 'TEACHER' : 'STUDENT'
 
@@ -96,6 +105,15 @@ export async function PATCH(
         whatsapp: whatsapp || null,
         email: email || null,
         role,
+        ...(bio !== undefined && { bio: role === 'TEACHER' ? bio : null }),
+        ...(role !== 'TEACHER'
+          ? { avatarUrl: null, avatarKey: null }
+          : avatarUrl === null
+            ? { avatarUrl: null, avatarKey: null }
+            : {
+                ...(avatarUrl !== undefined && { avatarUrl }),
+                ...(avatarKey !== undefined && { avatarKey }),
+              }),
       },
     })
     return NextResponse.json({ success: true })

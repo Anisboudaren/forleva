@@ -25,12 +25,17 @@ export default async function TeacherDashboard() {
   since.setDate(now.getDate() - 7)
 
   const [
+    teacher,
     totalCourses,
     salesAggAll,
     salesAgg7d,
     reviewsAgg,
     topByRevenue,
   ] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { fullName: true, bio: true },
+    }),
     prisma.course.count({ where: { teacherId: session.userId } }),
     prisma.order.aggregate({
       where: {
@@ -124,6 +129,19 @@ export default async function TeacherDashboard() {
           نظرة شاملة على أداء دوراتك وإحصائيات منصتك
         </p>
       </div>
+
+      <DashboardContentCard title="عن المدرّس" icon={Users}>
+        <div className="space-y-2">
+          <p className="font-semibold text-gray-900">
+            {teacher?.fullName?.trim() || "مدرّس"}
+          </p>
+          <p className="text-sm text-gray-700 leading-7 whitespace-pre-wrap">
+            {teacher?.bio?.trim()
+              ? teacher.bio
+              : "لم تتم إضافة نبذة بعد. يمكن للإدارة تعديلها من صفحة المستخدمين."}
+          </p>
+        </div>
+      </DashboardContentCard>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">

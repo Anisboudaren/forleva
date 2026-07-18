@@ -1,8 +1,12 @@
+import Link from "next/link"
 import { DashboardContentCard, DashboardCard } from "@/components/dashboard/DashboardCard"
-import { ShoppingCart, TrendingUp, DollarSign, Calendar, Download } from "lucide-react"
+import { ShoppingCart, TrendingUp, DollarSign, Calendar, Download, ChevronRight, ChevronLeft } from "lucide-react"
 import { GradientText } from "@/components/text/gradient-text"
 import { prisma } from "@/lib/db"
 import { getUserSession } from "@/lib/user-session"
+import { cn } from "@/lib/utils"
+
+const PAGE_SIZE = 20
 
 function formatCurrencyDZD(amount: number) {
   return `${Math.round(amount).toLocaleString()} د.ج`
@@ -12,7 +16,25 @@ function formatDateAr(date: Date) {
   return date.toLocaleDateString("ar-DZ", { day: "numeric", month: "long", year: "numeric" })
 }
 
-export default async function SalesPage() {
+function getPageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | "ellipsis")[] = [1]
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  if (start > 2) pages.push("ellipsis")
+  for (let p = start; p <= end; p++) pages.push(p)
+  if (end < total - 1) pages.push("ellipsis")
+  pages.push(total)
+  return pages
+}
+
+export default async function SalesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const sp = await searchParams
+  const pageParam = Number(sp.page)
   const session = await getUserSession()
 
   if (!session || session.role !== "TEACHER") {
@@ -30,23 +52,7 @@ export default async function SalesPage() {
   const startToday = new Date(now)
   startToday.setHours(0, 0, 0, 0)
 
-  const [orders, aggAll, agg7d, aggToday] = await Promise.all([
-    prisma.order.findMany({
-      where: {
-        status: "CONFIRMED",
-        course: { teacherId: session.userId },
-      },
-      select: {
-        id: true,
-        amount: true,
-        status: true,
-        createdAt: true,
-        course: { select: { title: true } },
-        user: { select: { fullName: true, email: true, phone: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
+  const [aggAll, agg7d, aggToday] = await Promise.all([
     prisma.order.aggregate({
       where: { status: "CONFIRMED", course: { teacherId: session.userId } },
       _count: { _all: true },
@@ -69,6 +75,31 @@ export default async function SalesPage() {
   const todaySales = aggToday._count._all
   const todayRevenue = aggToday._sum.amount ?? 0
   const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0
+
+  const totalPages = Math.max(1, Math.ceil(totalSales / PAGE_SIZE))
+  const page = Math.min(
+    Math.max(1, Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1),
+    totalPages
+  )
+  const pageWindow = getPageWindow(page, totalPages)
+
+  const orders = await prisma.order.findMany({
+    where: {
+      status: "CONFIRMED",
+      course: { teacherId: session.userId },
+    },
+    select: {
+      id: true,
+      amount: true,
+      status: true,
+      createdAt: true,
+      course: { select: { title: true } },
+      user: { select: { fullName: true, email: true, phone: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  })
 
   const sales = orders.map((o) => {
     const studentName = o.user?.fullName || o.user?.email || o.user?.phone || "طالب"
@@ -138,7 +169,7 @@ export default async function SalesPage() {
       {/* Sales List */}
       <DashboardContentCard
         title="سجل المبيعات"
-        description={`${sales.length} آخر المبيعات`}
+        description={`${totalSales} مبيعة مؤكدة`}
         icon={ShoppingCart}
       >
         <div className="overflow-x-auto">
@@ -181,6 +212,55 @@ export default async function SalesPage() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-600">
+              عرض {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalSales)} من {totalSales}
+            </p>
+            <div className="flex items-center gap-1">
+              <Link
+                href={page > 1 ? `?page=${page - 1}` : "?"}
+                aria-disabled={page === 1}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm text-gray-700 hover:bg-gray-100",
+                  page === 1 && "pointer-events-none opacity-50"
+                )}
+              >
+                <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline">السابق</span>
+              </Link>
+              {pageWindow.map((item, idx) =>
+                item === "ellipsis" ? (
+                  <span key={`e-${idx}`} className="px-2 text-gray-400">…</span>
+                ) : (
+                  <Link
+                    key={item}
+                    href={item > 1 ? `?page=${item}` : "?"}
+                    className={cn(
+                      "inline-flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-sm",
+                      item === page
+                        ? "border border-gray-200 bg-white font-semibold text-gray-900"
+                        : "text-gray-700 hover:bg-gray-100"
+                    )}
+                  >
+                    {item}
+                  </Link>
+                )
+              )}
+              <Link
+                href={`?page=${page + 1}`}
+                aria-disabled={page === totalPages}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm text-gray-700 hover:bg-gray-100",
+                  page === totalPages && "pointer-events-none opacity-50"
+                )}
+              >
+                <span className="hidden sm:inline">التالي</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        )}
       </DashboardContentCard>
     </div>
   )

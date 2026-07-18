@@ -19,7 +19,8 @@ export async function GET(
     const course = await prisma.course.findFirst({
       where: { id, status: 'PUBLISHED' },
       include: {
-        teacher: { select: { id: true, fullName: true } },
+        teacher: { select: { id: true, fullName: true, bio: true, avatarUrl: true } },
+        courseCategory: { select: { id: true, name: true, slug: true } },
         sections: {
           orderBy: { position: 'asc' },
           include: {
@@ -38,8 +39,11 @@ export async function GET(
     return NextResponse.json({
       id: course.id,
       title: course.title,
-      category: course.category,
+      category: course.courseCategory?.name ?? course.category,
+      categoryId: course.categoryId,
+      categorySlug: course.courseCategory?.slug ?? null,
       price: course.price,
+      originalPrice: course.originalPrice ?? null,
       imageUrl: course.imageUrl ? getSafeCourseImageUrl(course.imageUrl) : null,
       videoUrl: course.videoUrl ?? undefined,
       duration: course.duration,
@@ -49,7 +53,12 @@ export async function GET(
       learningOutcomes,
       salesPageData: normalizeSalesPageData(course.salesPageData),
       teacher: course.teacher
-        ? { id: course.teacher.id, fullName: course.teacher.fullName ?? 'مدرّس' }
+        ? {
+            id: course.teacher.id,
+            fullName: course.teacher.fullName ?? 'مدرّس',
+            bio: course.teacher.bio ?? null,
+            avatarUrl: course.teacher.avatarUrl ?? null,
+          }
         : null,
       sections: course.sections.map((sec) => ({
         id: sec.id,

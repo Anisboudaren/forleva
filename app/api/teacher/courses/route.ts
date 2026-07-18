@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import type { ContentType } from '@/lib/schema-enums'
 import { normalizeSalesPageData } from '@/lib/course-sales'
 import { buildExtraDataFromItem } from '@/lib/course-content'
+import { resolveCourseCategory } from '@/lib/resolve-course-category'
 
 type CourseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -114,7 +115,9 @@ export async function POST(request: NextRequest) {
     const {
       title,
       category,
+      categoryId,
       price,
+      originalPrice,
       imageUrl,
       videoUrl,
       duration,
@@ -128,7 +131,9 @@ export async function POST(request: NextRequest) {
     } = body as {
       title?: string
       category?: string
+      categoryId?: string
       price?: string | number
+      originalPrice?: string | number | null
       imageUrl?: string
       videoUrl?: string
       duration?: string
@@ -146,6 +151,17 @@ export async function POST(request: NextRequest) {
     }
 
     const priceNum = typeof price === 'number' ? price : parseInt(String(price ?? 0), 10)
+    const parsedOriginal =
+      originalPrice === undefined || originalPrice === null || originalPrice === ''
+        ? null
+        : typeof originalPrice === 'number'
+          ? originalPrice
+          : parseInt(String(originalPrice), 10)
+    const finalPrice = isNaN(priceNum) ? 0 : priceNum
+    const originalPriceNum =
+      parsedOriginal !== null && Number.isFinite(parsedOriginal) && parsedOriginal > finalPrice
+        ? Math.round(parsedOriginal)
+        : null
     const outcomes = Array.isArray(learningOutcomes)
       ? learningOutcomes.filter((o): o is string => typeof o === 'string')
       : []
@@ -158,12 +174,19 @@ export async function POST(request: NextRequest) {
           ? 'ARCHIVED'
           : 'DRAFT'
 
+    const resolvedCategory = await resolveCourseCategory({
+      categoryId,
+      categoryName: category,
+    })
+
     const createData = {
       teacherId: session.userId,
       status: statusEnum,
       title: title.trim(),
-      category: (category && String(category).trim()) || 'أخرى',
-      price: isNaN(priceNum) ? 0 : priceNum,
+      category: resolvedCategory.category,
+      categoryId: resolvedCategory.categoryId,
+      price: finalPrice,
+      originalPrice: originalPriceNum,
       imageUrl: imageUrl && String(imageUrl).trim() ? String(imageUrl).trim() : null,
       videoUrl: videoUrl && String(videoUrl).trim() ? String(videoUrl).trim() : null,
       duration: duration && String(duration).trim() ? String(duration).trim() : null,

@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { Award, Search, Loader2, Copy, MessageCircle, Eye, Phone, Upload, FileText, Download } from 'lucide-react'
 import { GradientText } from '@/components/text/gradient-text'
 import { CERTIFICATE_TYPE_LABELS } from '@/lib/certificate-constants'
@@ -114,11 +115,20 @@ export default function AdminCertificatesPage() {
   const [certFile, setCertFile] = useState<File | null>(null)
   const [uploadingCert, setUploadingCert] = useState(false)
   const [uploadCertError, setUploadCertError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchInput), 300)
     return () => clearTimeout(t)
   }, [searchInput])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, searchDebounced])
+
+  const PAGE_SIZE = 10
+  const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
+  const paginatedRequests = requests.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -271,7 +281,7 @@ export default function AdminCertificatesPage() {
         ) : (
           <>
             <ul className="md:hidden divide-y divide-gray-100 -mx-1">
-              {requests.map((req) => (
+              {paginatedRequests.map((req) => (
                 <li key={req.id} className="flex items-center gap-3 py-3 px-1">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate">{req.fullName}</p>
@@ -309,7 +319,7 @@ export default function AdminCertificatesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requests.map((req) => (
+                  {paginatedRequests.map((req) => (
                     <TableRow key={req.id}>
                       <TableCell>
                         <span className="font-medium">{req.fullName}</span>
@@ -357,6 +367,13 @@ export default function AdminCertificatesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={requests.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </>
         )}
       </DashboardContentCard>

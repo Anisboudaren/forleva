@@ -3,16 +3,23 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { GradientText } from '@/components/text/gradient-text'
-import { categories } from './Categories'
+import { usePublicCategories } from './Categories'
+import { PLACEHOLDER_COURSE_IMAGE } from '@/lib/safe-course-image'
 
-export function CategoriesPhotoGrid () {
+export function CategoriesPhotoGrid() {
+  const { categories, loading } = usePublicCategories()
+
   return (
     <section className='py-14 sm:py-16 lg:py-20 bg-white'>
       <div className='px-4 mx-auto max-w-7xl sm:px-6 lg:px-8'>
         <div className='max-w-xl mx-auto text-right sm:max-w-2xl'>
           <p className='text-sm font-medium text-yellow-600'>استكشف مجالات التعلّم</p>
           <h2 className='mt-2 text-2xl font-bold text-gray-900 sm:text-3xl lg:text-4xl'>
-            تعرّف على أهم <GradientText text='الفئات التعليمية' gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' />
+            تعرّف على أهم{' '}
+            <GradientText
+              text='الفئات التعليمية'
+              gradient='linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+            />
           </h2>
           <p className='mt-3 text-sm leading-7 text-gray-600 sm:text-base'>
             صور حقيقية تعبّر عن روح كل مجال، حتى تختار بسهولة المسار الأقرب لأهدافك وشغفك.
@@ -20,15 +27,18 @@ export function CategoriesPhotoGrid () {
         </div>
 
         <div className='grid mt-10 gap-4 sm:gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-3'>
+          {loading && categories.length === 0 && (
+            <p className='text-sm text-gray-500'>جارٍ تحميل الفئات...</p>
+          )}
           {categories.map((category) => (
             <Link
               key={category.id}
-              href={`/courses/category/${encodeURIComponent(category.name.replace(/^ال/, ''))}`}
+              href={`/courses/category/${encodeURIComponent(category.slug || category.name)}`}
               className='group relative overflow-hidden rounded-2xl bg-gray-900/5'
             >
               <div className='relative h-52 sm:h-56 lg:h-64'>
                 <Image
-                  src={category.image}
+                  src={category.imageUrl || PLACEHOLDER_COURSE_IMAGE}
                   alt={category.name}
                   fill
                   className='object-cover w-full h-full transition-transform duration-500 group-hover:scale-110'
@@ -40,17 +50,15 @@ export function CategoriesPhotoGrid () {
               <div className='absolute inset-0 flex flex-col justify-end p-5 sm:p-6'>
                 <div className='flex items-center justify-between mb-2 text-xs text-yellow-200/90'>
                   <span className='px-3 py-1 rounded-full bg-black/40 border border-white/10'>
-                    {category.category}
+                    {category.name}
                   </span>
                   <span className='px-3 py-1 rounded-full bg-black/30 border border-white/10'>
-                    {category.courses}
+                    {category.courseCount} دورة
                   </span>
                 </div>
-                <h3 className='text-lg font-bold text-white sm:text-xl'>
-                  {category.name}
-                </h3>
+                <h3 className='text-lg font-bold text-white sm:text-xl'>{category.name}</h3>
                 <p className='mt-1 text-xs text-gray-100/90 sm:text-sm line-clamp-2'>
-                  {category.description}
+                  {category.description || 'استكشف الدورات في هذه الفئة'}
                 </p>
               </div>
             </Link>
@@ -60,5 +68,3 @@ export function CategoriesPhotoGrid () {
     </section>
   )
 }
-
-
